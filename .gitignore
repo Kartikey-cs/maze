@@ -3,3 +3,4 @@ raygui.h
 *.exe
 users.txt
 images/
+*.db

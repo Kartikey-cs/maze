@@ -118,7 +118,7 @@ bool Signup(const char *username, const char *password, char *message) {
         return false;
     }
 
-    uint64_t hash = Hashpassword(password);
+    uint64_t hash = HashPassword(password);
     char hex[32];
     sprintf(hex, "%016llx", (unsigned long long)hash);
 
@@ -155,7 +155,7 @@ bool Signup(const char *username, const char *password, char *message) {
 }
 
 bool Login(const char *username, const char *password, char *message) {
-    uint64_t enteredHash = Hashpassword(password);
+    uint64_t enteredHash = HashPassword(password);
     char enteredHex[32];
     sprintf(enteredHex, "%016llx", (unsigned long long)enteredHash);
     
@@ -280,9 +280,9 @@ int main(void)
         {
             message[0] = '\0';
             if (mode == MODE_SIGNUP)
-                SignUp(username, password, message);
+                Signup(username, password, message);
             else
-                LogIn(username, password, message);
+                Login(username, password, message);
         }
 
         if (strlen(message) > 0)
