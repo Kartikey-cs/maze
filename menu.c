@@ -186,7 +186,7 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Graph Maze - Login");
     SetTargetFPS(60);
 
-    Texture2D background = LoadTexture("assets/image.png");
+    Texture2D background = LoadTexture("assets/background.png");
 
     Mode mode = MODE_SIGNUP;
     Field active = FIELD_NONE;
