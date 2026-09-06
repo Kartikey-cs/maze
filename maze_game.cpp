@@ -1,44 +1,20 @@
 #include "raylib.h"
 
+#include "maze_generator.h"
 #include "maze_graph.h"
 
 #include <algorithm>
-#include <array>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <vector>
 
 namespace {
 
 constexpr int screenWidth = 1280;
 constexpr int screenHeight = 720;
-constexpr int rows = 21;
-constexpr int cols = 21;
-constexpr int tileSize = 30;
 
-const std::array<int, rows * cols> mazeGrid = {
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,
-    1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,
-    1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,1,
-    1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,
-    1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,
-    1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,
-    1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,1,
-    1,0,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,
-    1,0,1,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,
-    1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,
-    1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,1,
-    1,0,1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,
-    1,0,0,0,0,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,
-    1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,
-    1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,
-    1,0,1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,
-    1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,
-    1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,
-    1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-};
-
-Vector2 CellCenter(int row, int col, int offsetX, int offsetY)
+Vector2 CellCenter(int row, int col, int tileSize, int offsetX, int offsetY)
 {
     return {
         static_cast<float>(offsetX + col * tileSize + tileSize / 2),
@@ -50,6 +26,7 @@ Vector2 CellCenter(int row, int col, int offsetX, int offsetY)
 
 enum class Screen {
     Menu,
+    DifficultySelect,
     Playing
 };
 
@@ -74,37 +51,70 @@ bool DrawButton(Rectangle rect, const char *text)
 
 class Maze {
 public:
-    Maze()
+    Maze() { BuildDefault(); }
+
+    void Generate(MazeDifficulty diff, unsigned int seed = 0)
     {
-        MazeGraph_Init(&graph_, rows, cols);
-        MazeGraph_BuildFromGrid(&graph_, mazeGrid.data(), rows, cols);
+        MazeGraph_Free(&graph_);
+
+        MazeGen_GetParams(diff, &params_);
+        rows_ = params_.rows;
+        cols_ = params_.cols;
+        grid_.resize(rows_ * cols_);
+
+        MazeGen_Generate(grid_.data(), rows_, cols_, params_.loop_percent, seed);
+
+        MazeGraph_Init(&graph_, rows_, cols_);
+        MazeGraph_BuildFromGrid(&graph_, grid_.data(), rows_, cols_);
+
         path_.resize(MAZE_GRAPH_MAX_CELLS);
-        pathLength_ = MazeGraph_FindShortestPath(&graph_, 1, 1, 19, 19,
-                                                 path_.data(), static_cast<int>(path_.size()));
+        pathLength_ = MazeGraph_FindShortestPath(&graph_, 1, 1,
+                                                  rows_ - 2, cols_ - 2,
+                                                  path_.data(),
+                                                  static_cast<int>(path_.size()));
         reachableCount_ = MazeGraph_DfsReachableCount(&graph_, 1, 1);
     }
 
-    ~Maze()
-    {
-        MazeGraph_Free(&graph_);
-    }
+    ~Maze() { MazeGraph_Free(&graph_); }
 
     Maze(const Maze&) = delete;
     Maze& operator=(const Maze&) = delete;
 
-    bool IsWall(int row, int col) const
-    {
-        return mazeGrid[row * cols + col] == 1;
-    }
+    bool IsWall(int row, int col) const { return grid_[row * cols_ + col] == 1; }
+    bool IsOpen(int row, int col) const { return grid_[row * cols_ + col] == 0; }
+    bool HasSolution() const { return pathLength_ > 0 && reachableCount_ > 0; }
 
-    bool HasSolution() const
+    int Rows() const { return rows_; }
+    int Cols() const { return cols_; }
+    int GoalRow() const { return rows_ - 2; }
+    int GoalCol() const { return cols_ - 2; }
+    const MazeDifficultyParams& Params() const { return params_; }
+
+    void CollectOpenCells(std::vector<std::pair<int,int>> &out) const
     {
-        return pathLength_ > 0 && reachableCount_ > 0;
+        out.clear();
+        for (int r = 0; r < rows_; r++)
+            for (int c = 0; c < cols_; c++)
+                if (IsOpen(r, c) && !(r == 1 && c == 1) && !(r == GoalRow() && c == GoalCol()))
+                    out.push_back({r, c});
     }
 
 private:
+    void BuildDefault()
+    {
+        rows_ = 21;
+        cols_ = 21;
+        params_ = {21, 21, 5, 4};
+        grid_.resize(rows_ * cols_, 1);
+        MazeGraph_Init(&graph_, rows_, cols_);
+    }
+
     MazeGraph graph_{};
+    MazeDifficultyParams params_{};
+    std::vector<int> grid_;
     std::vector<int> path_;
+    int rows_ = 21;
+    int cols_ = 21;
     int pathLength_ = 0;
     int reachableCount_ = 0;
 };
@@ -126,7 +136,7 @@ public:
     {
         int nextRow = row + dRow;
         int nextCol = col + dCol;
-        if (nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols)
+        if (nextRow < 0 || nextRow >= maze.Rows() || nextCol < 0 || nextCol >= maze.Cols())
             return false;
         if (maze.IsWall(nextRow, nextCol) || stamina <= 0)
             return false;
@@ -143,10 +153,7 @@ public:
     Fruit(int row, int col, const char *iconPath)
         : row_(row), col_(col), iconPath_(iconPath) {}
 
-    void Load()
-    {
-        icon_ = LoadTexture(iconPath_);
-    }
+    void Load() { icon_ = LoadTexture(iconPath_); }
 
     void Unload()
     {
@@ -154,25 +161,23 @@ public:
             UnloadTexture(icon_);
     }
 
-    void Draw(int offsetX, int offsetY) const
+    void Draw(int tileSize, int offsetX, int offsetY) const
     {
         if (!collected_)
         {
-            Vector2 center = CellCenter(row_, col_, offsetX, offsetY);
-            Rectangle target = {center.x - 12, center.y - 12, 24, 24};
+            Vector2 center = CellCenter(row_, col_, tileSize, offsetX, offsetY);
+            float half = tileSize * 0.4f;
+            Rectangle target = {center.x - half, center.y - half, half * 2, half * 2};
 
             if (icon_.id != 0)
             {
                 DrawTexturePro(icon_,
                     Rectangle{0, 0, static_cast<float>(icon_.width), static_cast<float>(icon_.height)},
-                    target,
-                    Vector2{0, 0},
-                    0,
-                    WHITE);
+                    target, Vector2{0, 0}, 0, WHITE);
             }
             else
             {
-                DrawCircleV(center, 8, ORANGE);
+                DrawCircleV(center, tileSize * 0.27f, ORANGE);
             }
         }
     }
@@ -186,10 +191,7 @@ public:
         }
     }
 
-    void Reset()
-    {
-        collected_ = false;
-    }
+    void Reset() { collected_ = false; }
 
 private:
     int row_;
@@ -202,30 +204,17 @@ private:
 class Game {
 public:
     Game()
-        : offsetX_((screenWidth - cols * tileSize) / 2),
-          offsetY_((screenHeight - rows * tileSize) / 2),
-          fruits_{
-              {5, 1, "resources/scrimsy fruit icons/scrimsy fruit icons/kind/apple/red apple.png"},
-              {9, 9, "resources/scrimsy fruit icons/scrimsy fruit icons/kind/banana/yellow banana.png"},
-              {15, 3, "resources/scrimsy fruit icons/scrimsy fruit icons/kind/grape/purple grapes.png"},
-              {17, 13, "resources/scrimsy fruit icons/scrimsy fruit icons/kind/strawberry/red strawberry.png"}
-          }
     {
         InitWindow(screenWidth, screenHeight, "MazeQuest - C and C++ Hybrid");
         SetTargetFPS(60);
         background_ = LoadTexture("assets/image.png");
         shrub_ = LoadTexture("assets/bush-Photoroom.png");
         playerTexture_ = LoadTexture("resources/pixel people/astronaut 2.png");
-
-        for (Fruit& fruit : fruits_)
-            fruit.Load();
     }
 
     ~Game()
     {
-        for (Fruit& fruit : fruits_)
-            fruit.Unload();
-
+        UnloadFruits();
         UnloadTexture(shrub_);
         UnloadTexture(background_);
         UnloadTexture(playerTexture_);
@@ -242,12 +231,61 @@ public:
     }
 
 private:
+    void RecalcLayout()
+    {
+        int maxTileW = screenWidth / maze_.Cols();
+        int maxTileH = screenHeight / maze_.Rows();
+        tileSize_ = std::min(maxTileW, maxTileH);
+        offsetX_ = (screenWidth - maze_.Cols() * tileSize_) / 2;
+        offsetY_ = (screenHeight - maze_.Rows() * tileSize_) / 2;
+    }
+
+    void SpawnFruits()
+    {
+        UnloadFruits();
+        fruits_.clear();
+
+        const char *iconPaths[] = {
+            "resources/scrimsy fruit icons/scrimsy fruit icons/kind/apple/red apple.png",
+            "resources/scrimsy fruit icons/scrimsy fruit icons/kind/banana/yellow banana.png",
+            "resources/scrimsy fruit icons/scrimsy fruit icons/kind/grape/purple grapes.png",
+            "resources/scrimsy fruit icons/scrimsy fruit icons/kind/strawberry/red strawberry.png",
+            "resources/scrimsy fruit icons/scrimsy fruit icons/kind/apple/red apple.png"
+        };
+        int numIcons = 5;
+
+        std::vector<std::pair<int,int>> openCells;
+        maze_.CollectOpenCells(openCells);
+
+        unsigned int seed = static_cast<unsigned int>(time(nullptr));
+        srand(seed);
+        for (int i = static_cast<int>(openCells.size()) - 1; i > 0; i--)
+        {
+            int j = rand() % (i + 1);
+            std::swap(openCells[i], openCells[j]);
+        }
+
+        int count = std::min(maze_.Params().fruit_count, static_cast<int>(openCells.size()));
+        for (int i = 0; i < count; i++)
+        {
+            fruits_.emplace_back(openCells[i].first, openCells[i].second,
+                                 iconPaths[i % numIcons]);
+        }
+
+        for (Fruit& fruit : fruits_)
+            fruit.Load();
+    }
+
+    void UnloadFruits()
+    {
+        for (Fruit& fruit : fruits_)
+            fruit.Unload();
+    }
+
     void Update()
     {
-        if (screen_ == Screen::Menu)
-        {
+        if (screen_ == Screen::Menu || screen_ == Screen::DifficultySelect)
             return;
-        }
 
         if (won_ || lost_) return;
 
@@ -259,7 +297,7 @@ private:
         for (Fruit& fruit : fruits_)
             fruit.TryCollect(player_);
 
-        won_ = player_.row == 19 && player_.col == 19;
+        won_ = player_.row == maze_.GoalRow() && player_.col == maze_.GoalCol();
         lost_ = player_.stamina == 0 && !won_;
     }
 
@@ -274,17 +312,26 @@ private:
         {
             DrawMenu();
         }
+        else if (screen_ == Screen::DifficultySelect)
+        {
+            DrawDifficultySelect();
+        }
         else
         {
             DrawMaze();
             DrawHud();
 
-            if (won_) DrawText("YOU ESCAPED!", 515, 330, 40, GREEN);
-            if (lost_) DrawText("STAMINA EMPTY", 500, 330, 40, RED);
+            if (won_) DrawCenteredText("YOU ESCAPED!", 40, GREEN);
+            if (lost_) DrawCenteredText("STAMINA EMPTY", 40, RED);
         }
 
-
         EndDrawing();
+    }
+
+    void DrawCenteredText(const char *text, int fontSize, Color color)
+    {
+        int w = MeasureText(text, fontSize);
+        DrawText(text, screenWidth / 2 - w / 2, screenHeight / 2 - fontSize / 2, fontSize, color);
     }
 
     void DrawMenu()
@@ -296,13 +343,45 @@ private:
         Rectangle quitButton = {520, 390, 240, 58};
 
         if (DrawButton(startButton, "START GAME"))
-            StartGame();
+            screen_ = Screen::DifficultySelect;
 
         if (DrawButton(quitButton, "QUIT"))
             quit_ = true;
+    }
+
+    void DrawDifficultySelect()
+    {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
+        DrawText("Select Difficulty", 450, 170, 44, RAYWHITE);
+
+        Rectangle easyBtn   = {520, 280, 240, 58};
+        Rectangle mediumBtn = {520, 360, 240, 58};
+        Rectangle hardBtn   = {520, 440, 240, 58};
+
+        if (DrawButton(easyBtn, "EASY"))
+            StartWithDifficulty(MAZE_DIFFICULTY_EASY);
+
+        if (DrawButton(mediumBtn, "MEDIUM"))
+            StartWithDifficulty(MAZE_DIFFICULTY_MEDIUM);
+
+        if (DrawButton(hardBtn, "HARD"))
+            StartWithDifficulty(MAZE_DIFFICULTY_HARD);
+    }
+
+    void StartWithDifficulty(MazeDifficulty diff)
+    {
+        unsigned int seed = static_cast<unsigned int>(time(nullptr));
+        maze_.Generate(diff, seed);
 
         if (!maze_.HasSolution())
-            DrawText("Maze has no valid path.", 520, 470, 20, RED);
+            maze_.Generate(diff, seed + 1);
+
+        RecalcLayout();
+        SpawnFruits();
+        player_.Reset();
+        won_ = false;
+        lost_ = false;
+        screen_ = Screen::Playing;
     }
 
     void DrawBackground()
@@ -322,15 +401,15 @@ private:
 
     void DrawMaze()
     {
-        for (int row = 0; row < rows; row++)
+        for (int row = 0; row < maze_.Rows(); row++)
         {
-            for (int col = 0; col < cols; col++)
+            for (int col = 0; col < maze_.Cols(); col++)
             {
                 Rectangle tile = {
-                    static_cast<float>(offsetX_ + col * tileSize),
-                    static_cast<float>(offsetY_ + row * tileSize),
-                    static_cast<float>(tileSize),
-                    static_cast<float>(tileSize)
+                    static_cast<float>(offsetX_ + col * tileSize_),
+                    static_cast<float>(offsetY_ + row * tileSize_),
+                    static_cast<float>(tileSize_),
+                    static_cast<float>(tileSize_)
                 };
 
                 if (maze_.IsWall(row, col))
@@ -354,29 +433,29 @@ private:
         }
 
         for (const Fruit& fruit : fruits_)
-            fruit.Draw(offsetX_, offsetY_);
+            fruit.Draw(tileSize_, offsetX_, offsetY_);
 
         DrawPlayer();
-        DrawCircleV(CellCenter(19, 19, offsetX_, offsetY_), 10, LIME);
+
+        Vector2 goalCenter = CellCenter(maze_.GoalRow(), maze_.GoalCol(), tileSize_, offsetX_, offsetY_);
+        DrawCircleV(goalCenter, tileSize_ * 0.33f, LIME);
     }
 
     void DrawPlayer()
     {
-        Vector2 center = CellCenter(player_.row, player_.col, offsetX_, offsetY_);
-        Rectangle target = {center.x - 14, center.y - 14, 28, 28};
+        Vector2 center = CellCenter(player_.row, player_.col, tileSize_, offsetX_, offsetY_);
+        float half = tileSize_ * 0.47f;
+        Rectangle target = {center.x - half, center.y - half, half * 2, half * 2};
 
         if (playerTexture_.id != 0)
         {
             DrawTexturePro(playerTexture_,
                 Rectangle{0, 0, static_cast<float>(playerTexture_.width), static_cast<float>(playerTexture_.height)},
-                target,
-                Vector2{0, 0},
-                0,
-                WHITE);
+                target, Vector2{0, 0}, 0, WHITE);
         }
         else
         {
-            DrawCircleV(center, 10, SKYBLUE);
+            DrawCircleV(center, tileSize_ * 0.33f, SKYBLUE);
         }
     }
 
@@ -388,21 +467,11 @@ private:
         DrawText(TextFormat("%d", player_.stamina), 288, 54, 22, RAYWHITE);
     }
 
-    void StartGame()
-    {
-        player_.Reset();
-        for (Fruit& fruit : fruits_)
-            fruit.Reset();
-
-        won_ = false;
-        lost_ = false;
-        screen_ = Screen::Playing;
-    }
-
     Maze maze_;
     Player player_;
-    int offsetX_;
-    int offsetY_;
+    int tileSize_ = 30;
+    int offsetX_ = 0;
+    int offsetY_ = 0;
     Texture2D background_{};
     Texture2D shrub_{};
     Texture2D playerTexture_{};
