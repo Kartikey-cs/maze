@@ -1,6 +1,9 @@
 raygui-master/
 raygui.h
 *.exe
+*.o
+.DS_Store
+__MACOSX/
 users.txt
 images/
 *.db
