@@ -210,14 +210,14 @@ void MazeGen_PrintCharGrid(const char *charGrid, int rows, int cols)
 static void showMenu(void)
 {
     printf("\n");
-    printf("╔══════════════════════════════════╗\n");
-    printf("║     Maze Generator CLI Tool      ║\n");
-    printf("╠══════════════════════════════════╣\n");
-    printf("║  1) Easy   (15 x 15)            ║\n");
-    printf("║  2) Medium (21 x 21)            ║\n");
-    printf("║  3) Hard   (31 x 31)            ║\n");
-    printf("║  0) Exit                        ║\n");
-    printf("╚══════════════════════════════════╝\n");
+    printf("+----------------------------------+\n");
+    printf("|     Maze Generator CLI Tool       |\n");
+    printf("+----------------------------------+\n");
+    printf("|  1) Easy   (15 x 15)             |\n");
+    printf("|  2) Medium (21 x 21)             |\n");
+    printf("|  3) Hard   (31 x 31)             |\n");
+    printf("|  0) Exit                         |\n");
+    printf("+----------------------------------+\n");
 }
 
 static int getDifficulty(void)
