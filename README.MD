@@ -30,7 +30,7 @@ The playable hybrid build is split the way the proposal describes:
 - `maze_game.cpp`: C++ game layer. It uses simple `Maze`, `Player`, `Fruit`, and `Game` classes to show object-oriented programming. It also contains the start menu and game screen flow.
 - `menu.c`: separate C login/signup prototype with SQLite. The hybrid gameplay executable has its own simple start menu.
 
-The maze used by the hybrid game is hard-coded in `maze_game.cpp` as a fixed 21 x 21 grid. It is not downloaded or randomly generated.
+Each game generates a new random maze with `maze_generator.c`. The size (15, 21 or 31 cells wide), the number of fruits and the start and goal cells come from the difficulty chosen in the menu.
 
 Fruit pickups use PNG icons from `resources/scrimsy fruit icons/`.
 
@@ -38,6 +38,7 @@ Build the hybrid game with MSYS2 UCRT64. Compile the C data-structure file with 
 
 ```sh
 gcc -Wall -Wextra -std=c11 -c maze_graph.c -o maze_graph.o
-g++ -Wall -Wextra -std=c++17 maze_game.cpp maze_graph.o -o MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc -Wall -Wextra -std=c11 -c maze_generator.c -o maze_generator.o
+g++ -Wall -Wextra -std=c++17 maze_game.cpp maze_graph.o maze_generator.o -o MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm
 ```
 
