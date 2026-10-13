@@ -7,3 +7,6 @@ __MACOSX/
 users.txt
 images/
 *.db
+build/
+__pycache__/
+*.csv.tmp
