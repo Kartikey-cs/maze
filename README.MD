@@ -49,7 +49,9 @@ The playable hybrid build is split the way the proposal describes:
 - `src/maze_game.cpp`: C++ game layer. It uses simple `Maze`, `Player`, `Fruit`, and `Game` classes to show object-oriented programming. It also contains the start menu and game screen flow.
 - `src/menu.c`: separate C login/signup prototype with SQLite. The hybrid gameplay executable has its own simple start menu.
 
-The maze used by the hybrid game is hard-coded in `src/maze_game.cpp` as a fixed 21 x 21 grid. It is not downloaded or randomly generated.
+Each game generates a new random maze with `src/maze_generator.c`. The size
+(15, 21 or 31 cells wide), number of fruits, and start and goal cells come from
+the difficulty chosen in the menu.
 
 Fruit pickups use PNG icons from `resources/scrimsy fruit icons/`.
 
@@ -58,7 +60,8 @@ Build the hybrid game with MSYS2 UCRT64. Compile the C data-structure file with 
 ```sh
 mkdir -p build
 gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_graph.c -o build/maze_graph.o
-g++ -Wall -Wextra -std=c++17 -Iinclude src/maze_game.cpp build/maze_graph.o -o build/MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_generator.c -o build/maze_generator.o
+g++ -Wall -Wextra -std=c++17 -Iinclude src/maze_game.cpp build/maze_graph.o build/maze_generator.o -o build/MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm
 ```
 
 ## Maze features, simulated players, and difficulty model
@@ -158,6 +161,6 @@ if (MazeFeatures_Extract(&graph, start_row, start_col, goal_row, goal_col, &feat
 ```
 
 Compile the caller with `-Iinclude -I. src/maze_features.c src/maze_graph.c -lm`. The header is small
-and needs no training library. The playable game retains its existing fixed maze;
-the model is available as a separate C scoring API.
+and needs no training library. The playable game generates mazes using the selected
+difficulty; the trained model is available as a separate C scoring API.
 

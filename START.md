@@ -10,12 +10,14 @@ make game
 ./build/maze_game
 ```
 
-Click **START GAME**, then use **WASD** or the **arrow keys** to move. Reach the
+Choose **EASY**, **MEDIUM**, or **HARD**, then use **WASD** or the **arrow keys** to move. Reach the
 exit before stamina runs out. Each move costs 1 stamina; each fruit restores 20,
-up to a maximum of 100. Close the window to exit.
+up to a maximum of 100. After winning or running out of stamina, press **Enter**
+to return to the menu and start a new maze. Close the window to exit.
 
-The playable game uses a fixed maze. The separate training pipeline generates
-mazes and scores their difficulty for simulated players.
+The playable game generates a new random maze for the selected difficulty.
+The separate training pipeline generates mazes and scores their difficulty for
+simulated players.
 
 ## Requirements
 

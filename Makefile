@@ -41,8 +41,11 @@ build/maze_model_score: src/maze_model_score.c model/maze_model.h Makefile | bui
 build/maze_graph.o: src/maze_graph.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_graph.c -o $@
 
-build/maze_game: src/maze_game.cpp build/maze_graph.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o $(RAYLIB_LIBS) -o $@
+build/maze_generator.o: src/maze_generator.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_generator.c -o $@
+
+build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o $(RAYLIB_LIBS) -o $@
 
 build/maze_cli: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
