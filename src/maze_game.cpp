@@ -2,6 +2,7 @@
 
 #include "maze_generator.h"
 #include "maze_graph.h"
+#include "maze_rules.h"
 
 #include <algorithm>
 #include <ctime>
@@ -11,7 +12,7 @@ namespace {
 
 constexpr int screenWidth = 1280;
 constexpr int screenHeight = 720;
-constexpr int maxStamina = 100;
+constexpr int maxStamina = MAZE_STAMINA_MAX;
 
 Vector2 CellCenter(int row, int col, int offsetX, int offsetY, int tileSize)
 {
@@ -143,7 +144,7 @@ public:
 
         row = nextRow;
         col = nextCol;
-        stamina = std::max(0, stamina - 1);
+        stamina = MazeRules_Move(stamina);
         return true;
     }
 };
@@ -185,7 +186,7 @@ public:
         if (!collected_ && player.row == row_ && player.col == col_)
         {
             collected_ = true;
-            player.stamina = std::min(maxStamina, player.stamina + 20);
+            player.stamina = MazeRules_Collect(player.stamina);
         }
     }
 
