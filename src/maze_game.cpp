@@ -1,6 +1,7 @@
 #include "raylib.h"
 
 #include "maze_graph.h"
+#include "maze_rules.h"
 
 #include <algorithm>
 #include <array>
@@ -113,13 +114,13 @@ class Player {
 public:
     int row = 1;
     int col = 1;
-    int stamina = 100;
+    int stamina = MAZE_STAMINA_MAX;
 
     void Reset()
     {
         row = 1;
         col = 1;
-        stamina = 100;
+        stamina = MAZE_STAMINA_MAX;
     }
 
     bool TryMove(int dRow, int dCol, const Maze& maze)
@@ -133,7 +134,7 @@ public:
 
         row = nextRow;
         col = nextCol;
-        stamina = std::max(0, stamina - 1);
+        stamina = MazeRules_Move(stamina);
         return true;
     }
 };
@@ -182,7 +183,7 @@ public:
         if (!collected_ && player.row == row_ && player.col == col_)
         {
             collected_ = true;
-            player.stamina = std::min(100, player.stamina + 20);
+            player.stamina = MazeRules_Collect(player.stamina);
         }
     }
 
