@@ -37,6 +37,9 @@ build/maze_sim_test: tests/maze_sim_test.c src/maze_sim.c src/maze_graph.c $(HEA
 build/maze_generator_test: tests/maze_generator_test.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
+build/maze_planner_test: tests/maze_planner_test.c src/maze_planner.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
 build/maze_auth_test: tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) -o $@
 
@@ -86,10 +89,11 @@ train: dataset
 check-model: build/maze_model_score
 	$(PYTHON) tools/verify_model.py data/maze_data.csv model/maze_model.json ./build/maze_model_score
 
-test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_auth_test build/maze_stats_test build/maze_dataset
+test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_planner_test build/maze_auth_test build/maze_stats_test build/maze_dataset
 	./build/maze_features_test
 	./build/maze_sim_test
 	./build/maze_generator_test
+	./build/maze_planner_test
 	mkdir -p build/auth_test && cd build/auth_test && rm -f maze_game.db && ../maze_auth_test
 	mkdir -p build/stats_test && cd build/stats_test && rm -f maze_game.db play_log.csv && ../maze_stats_test
 	CC="$(CC)" $(PYTHON) -m unittest discover -s tests -p '*_test.py'
