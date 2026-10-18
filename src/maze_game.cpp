@@ -1,9 +1,12 @@
 #include "raylib.h"
 
+#include "maze_adaptive.h"
 #include "maze_auth.h"
 #include "maze_generator.h"
 #include "maze_graph.h"
+#include "maze_planner.h"
 #include "maze_rules.h"
+#include "maze_solvers.hpp"
 #include "maze_stats.h"
 
 #include <algorithm>
@@ -83,8 +86,10 @@ public:
     Maze(const Maze&) = delete;
     Maze& operator=(const Maze&) = delete;
 
-    // Makes a new random maze. Returns false if it could not be built or solved.
-    bool Generate(MazeDifficulty difficulty)
+    // Makes the maze for this seed and places its fruit. Returns false if the
+    // maze could not be built or solved. Use IsWinnable() to see if the fruit
+    // gives the player enough stamina to reach the exit.
+    bool Generate(MazeDifficulty difficulty, unsigned int seed)
     {
         MazeDifficultyParams params;
         MazeGen_GetParams(difficulty, &params);
@@ -95,8 +100,9 @@ public:
         grid_.assign(rows_ * cols_, 1);
         pathLength_ = 0;
         reachableCount_ = 0;
+        winnable_ = false;
+        fruitVertices_.clear();
 
-        unsigned int seed = static_cast<unsigned int>(GetRandomValue(1, 1000000000));
         if (!MazeGen_Generate(grid_.data(), rows_, cols_, params.loop_percent, seed))
             return false;
         if (!MazeGraph_BuildFromGrid(&graph_, grid_.data(), rows_, cols_))
@@ -107,7 +113,19 @@ public:
                                                  GoalRow(), GoalCol(),
                                                  path.data(), static_cast<int>(path.size()));
         reachableCount_ = MazeGraph_DfsReachableCount(&graph_, StartRow(), StartCol());
-        return HasSolution();
+        if (!HasSolution())
+            return false;
+
+        // The same seed always gives the same fruit, so the planner and the game agree.
+        int fruits[MAZE_PLANNER_MAX_FRUITS];
+        int count = MazePlanner_PlaceFruits(&graph_, StartVertex(), GoalVertex(),
+                                            std::min(fruitCount_, MAZE_PLANNER_MAX_FRUITS), seed, fruits);
+        fruitVertices_.assign(fruits, fruits + count);
+
+        MazePlan plan;
+        winnable_ = MazePlanner_Solve(&graph_, StartVertex(), GoalVertex(), fruits, count,
+                                      maxStamina, &plan) && plan.winnable;
+        return true;
     }
 
     bool IsWall(int row, int col) const
@@ -119,6 +137,14 @@ public:
     {
         return pathLength_ > 0 && reachableCount_ > 0;
     }
+
+    bool IsWinnable() const { return winnable_; }
+
+    const MazeGraph& Graph() const { return graph_; }
+    int VertexAt(int row, int col) const { return MazeGraph_VertexAt(&graph_, row, col); }
+    int StartVertex() const { return VertexAt(StartRow(), StartCol()); }
+    int GoalVertex() const { return VertexAt(GoalRow(), GoalCol()); }
+    const std::vector<int>& FruitVertices() const { return fruitVertices_; }
 
     int Rows() const { return rows_; }
     int Cols() const { return cols_; }
@@ -138,6 +164,8 @@ private:
     int fruitCount_ = 0;
     int pathLength_ = 0;
     int reachableCount_ = 0;
+    std::vector<int> fruitVertices_;
+    bool winnable_ = false;
 };
 
 class Player {
@@ -179,6 +207,7 @@ public:
 
     int Row() const { return row_; }
     int Col() const { return col_; }
+    bool Collected() const { return collected_; }
 
     void Draw(int offsetX, int offsetY, int tileSize) const
     {
@@ -272,6 +301,14 @@ private:
             return;
         }
 
+        if (IsKeyPressed(KEY_C))
+        {
+            if (showSolvers_)
+                showSolvers_ = false;
+            else
+                RunSolvers();
+        }
+
         if (won_ || lost_)
         {
             if (IsKeyPressed(KEY_ENTER))
@@ -279,16 +316,24 @@ private:
             return;
         }
 
+        int movesBefore = player_.moves;
+
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) player_.TryMove(-1, 0, maze_);
         if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) player_.TryMove(1, 0, maze_);
         if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) player_.TryMove(0, -1, maze_);
         if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) player_.TryMove(0, 1, maze_);
+
+        if (player_.moves != movesBefore)
+            hintPath_.clear();      // the route is out of date once the player moves
 
         for (Fruit& fruit : fruits_)
             fruit.TryCollect(player_);
 
         won_ = player_.row == maze_.GoalRow() && player_.col == maze_.GoalCol();
         lost_ = player_.stamina == 0 && !won_;
+
+        if (IsKeyPressed(KEY_H) && !won_ && !lost_)
+            ShowHint();
 
         if ((won_ || lost_) && !resultSaved_)
             SaveResult();
@@ -317,6 +362,8 @@ private:
         {
             DrawMaze();
             DrawHud();
+            if (showSolvers_)
+                DrawSolverPanel();
 
             if (won_) DrawText("YOU ESCAPED!", 515, 330, 40, GREEN);
             if (lost_) DrawText("STAMINA EMPTY", 500, 330, 40, RED);
@@ -429,6 +476,77 @@ private:
             DrawText(message_.c_str(), static_cast<int>(loginPanel_.x + 30), static_cast<int>(submitButton_.y + 70), 18, YELLOW);
     }
 
+    // Runs BFS, DFS, Dijkstra and A* from the start of this maze to its exit.
+    void RunSolvers()
+    {
+        BfsSolver bfs;
+        DfsSolver dfs;
+        DijkstraSolver dijkstra;
+        AStarSolver astar;
+        const Solver* solvers[solverCount] = {&bfs, &dfs, &dijkstra, &astar};
+
+        for (int i = 0; i < solverCount; i++)
+        {
+            solverNames_[i] = solvers[i]->Name();
+            solverResults_[i] = solvers[i]->Solve(maze_.Graph(), maze_.StartVertex(), maze_.GoalVertex());
+        }
+        showSolvers_ = true;
+    }
+
+    // The table on the left. The maze starts further right than this on every difficulty.
+    void DrawSolverPanel()
+    {
+        const int x = 15;
+        const int y = 215;
+
+        DrawRectangle(x, y, 275, 190, Color{0, 0, 0, 170});
+        DrawRectangleLines(x, y, 275, 190, GRAY);
+        DrawText("Solvers, start to exit", x + 10, y + 8, 16, RAYWHITE);
+        DrawText("checked", x + 112, y + 34, 14, LIGHTGRAY);
+        DrawText("route", x + 178, y + 34, 14, LIGHTGRAY);
+        DrawText("us", x + 233, y + 34, 14, LIGHTGRAY);
+
+        for (int i = 0; i < solverCount; i++)
+        {
+            int row = y + 56 + i * 28;
+            DrawRectangle(x + 10, row + 2, 12, 12, solverColors_[i]);
+            DrawText(solverNames_[i], x + 30, row, 16, RAYWHITE);
+            DrawText(TextFormat("%d", solverResults_[i].visited), x + 112, row, 16, RAYWHITE);
+            DrawText(TextFormat("%d", solverResults_[i].pathLength), x + 178, row, 16, RAYWHITE);
+            DrawText(TextFormat("%.1f", solverResults_[i].microseconds), x + 225, row, 16, RAYWHITE);
+        }
+
+        DrawText("Press C to hide", x + 10, y + 168, 14, LIGHTGRAY);
+    }
+
+    // Asks the planner for the best route from where the player stands now,
+    // with the stamina they have left and the fruit still on the maze.
+    void ShowHint()
+    {
+        std::vector<int> fruits;
+        for (const Fruit& fruit : fruits_)
+        {
+            if (!fruit.Collected())
+                fruits.push_back(maze_.VertexAt(fruit.Row(), fruit.Col()));
+        }
+
+        MazePlan plan;
+        bool ok = MazePlanner_Solve(&maze_.Graph(), maze_.VertexAt(player_.row, player_.col),
+                                    maze_.GoalVertex(), fruits.data(), static_cast<int>(fruits.size()),
+                                    player_.stamina, &plan);
+
+        hintPath_.clear();
+        if (ok && plan.winnable)
+        {
+            hintPath_.assign(plan.path + 1, plan.path + plan.path_length);
+            hintMessage_ = "Follow the dots.";
+        }
+        else
+        {
+            hintMessage_ = "No winning route from here.";
+        }
+    }
+
     // Saves the finished game once and works out the new rating.
     void SaveResult()
     {
@@ -506,12 +624,13 @@ private:
         DrawText("MazeQuest", 505, 120, 54, RAYWHITE);
         DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 195, 22, RAYWHITE);
 
-        Rectangle easyButton = {520, 240, 240, 54};
-        Rectangle mediumButton = {520, 304, 240, 54};
-        Rectangle hardButton = {520, 368, 240, 54};
-        Rectangle boardButton = {520, 432, 240, 54};
-        Rectangle logoutButton = {520, 496, 240, 54};
-        Rectangle quitButton = {520, 560, 240, 54};
+        Rectangle easyButton = {520, 235, 240, 52};
+        Rectangle mediumButton = {520, 297, 240, 52};
+        Rectangle hardButton = {520, 359, 240, 52};
+        Rectangle adaptiveButton = {520, 421, 240, 52};
+        Rectangle boardButton = {520, 483, 240, 52};
+        Rectangle logoutButton = {520, 545, 240, 52};
+        Rectangle quitButton = {520, 607, 240, 52};
 
         if (DrawButton(easyButton, "EASY"))
             StartGame(MAZE_DIFFICULTY_EASY);
@@ -521,6 +640,9 @@ private:
 
         if (DrawButton(hardButton, "HARD"))
             StartGame(MAZE_DIFFICULTY_HARD);
+
+        if (DrawButton(adaptiveButton, "ADAPTIVE"))
+            StartAdaptive();
 
         if (DrawButton(boardButton, "LEADERBOARD"))
             OpenLeaderboard();
@@ -540,7 +662,7 @@ private:
             quit_ = true;
 
         if (mazeFailed_)
-            DrawText("Could not make a valid maze. Try again.", 460, 640, 20, RED);
+            DrawText("Could not make a valid maze. Try again.", 460, 672, 20, RED);
     }
 
     void DrawBackground()
@@ -594,6 +716,29 @@ private:
         for (const Fruit& fruit : fruits_)
             fruit.Draw(offsetX_, offsetY_, tileSize_);
 
+        if (showSolvers_)
+        {
+            int shift = tileSize_ / 5;
+            for (int i = 0; i < solverCount; i++)
+            {
+                Vector2 corner = {(i % 2 == 0 ? -1.0f : 1.0f) * shift, (i < 2 ? -1.0f : 1.0f) * shift};
+                for (int vertex : solverResults_[i].path)
+                {
+                    Vector2 center = CellCenter(maze_.Graph().vertex_row[vertex], maze_.Graph().vertex_col[vertex],
+                                                offsetX_, offsetY_, tileSize_);
+                    DrawCircleV(Vector2{center.x + corner.x, center.y + corner.y},
+                                std::max(2.0f, tileSize_ / 10.0f), solverColors_[i]);
+                }
+            }
+        }
+
+        for (int vertex : hintPath_)
+        {
+            Vector2 center = CellCenter(maze_.Graph().vertex_row[vertex], maze_.Graph().vertex_col[vertex],
+                                        offsetX_, offsetY_, tileSize_);
+            DrawCircleV(center, tileSize_ / 6.0f, YELLOW);
+        }
+
         DrawPlayer();
         DrawCircleV(CellCenter(maze_.GoalRow(), maze_.GoalCol(), offsetX_, offsetY_, tileSize_),
                     tileSize_ / 3.0f, LIME);
@@ -627,40 +772,69 @@ private:
         DrawRectangle(36, 58, static_cast<int>(240 * (player_.stamina / static_cast<float>(maxStamina))), 16, GREEN);
         DrawText(TextFormat("%d", player_.stamina), 288, 54, 22, RAYWHITE);
         DrawText(TextFormat("Player: %s", currentUser_.c_str()), 36, 90, 20, RAYWHITE);
+        DrawText("H: hint   C: solvers", 36, 115, 18, LIGHTGRAY);
+        if (!hintMessage_.empty())
+            DrawText(hintMessage_.c_str(), 36, 140, 18, YELLOW);
+        if (adaptive_)
+            DrawText(TextFormat("Adaptive maze (%s)", difficultyNames[static_cast<int>(difficulty_)]),
+                     36, 165, 18, SKYBLUE);
     }
 
-    // Puts the fruit on random open cells (not the start or the goal).
+    // Makes the fruit objects for the cells the maze chose.
     void PlaceFruits()
     {
         fruits_.clear();
 
-        while (static_cast<int>(fruits_.size()) < maze_.FruitCount())
+        for (int vertex : maze_.FruitVertices())
         {
-            int row = GetRandomValue(0, maze_.Rows() - 1);
-            int col = GetRandomValue(0, maze_.Cols() - 1);
-
-            if (maze_.IsWall(row, col)) continue;
-            if (row == maze_.StartRow() && col == maze_.StartCol()) continue;
-            if (row == maze_.GoalRow() && col == maze_.GoalCol()) continue;
-
-            bool taken = false;
-            for (const Fruit& fruit : fruits_)
-            {
-                if (fruit.Row() == row && fruit.Col() == col)
-                    taken = true;
-            }
-            if (taken) continue;
-
+            int row = maze_.Graph().vertex_row[vertex];
+            int col = maze_.Graph().vertex_col[vertex];
             fruits_.push_back(Fruit(row, col, fruitIcons_[fruits_.size() % 4]));
         }
+    }
+
+    // Tries new random mazes until one can really be won with the stamina and
+    // fruit it has. Hard mazes often cannot, so this may take a few tries.
+    bool MakeWinnableMaze(MazeDifficulty difficulty)
+    {
+        for (int attempt = 0; attempt < 200; attempt++)
+        {
+            unsigned int seed = static_cast<unsigned int>(GetRandomValue(1, 1000000000));
+            if (maze_.Generate(difficulty, seed) && maze_.IsWinnable())
+                return true;
+        }
+        return false;
     }
 
     void StartGame(MazeDifficulty difficulty)
     {
         difficulty_ = difficulty;
-        mazeFailed_ = !maze_.Generate(difficulty);
+        adaptive_ = false;
+        mazeFailed_ = !MakeWinnableMaze(difficulty);
+        if (mazeFailed_) return;
+        BeginPlaying();
+    }
+
+    // Lets the adaptive controller choose a maze that fits the player's rating.
+    void StartAdaptive()
+    {
+        MazeChoice choice;
+        unsigned int seed = static_cast<unsigned int>(GetRandomValue(1, 1000000000));
+
+        // The same difficulty and seed give back exactly the maze the controller scored.
+        mazeFailed_ = !MazeAdaptive_Choose(rating_, seed, &choice) ||
+                      !maze_.Generate(choice.difficulty, choice.seed) ||
+                      !maze_.IsWinnable();
         if (mazeFailed_) return;
 
+        difficulty_ = choice.difficulty;
+        adaptive_ = true;
+        BeginPlaying();
+    }
+
+    // Lays out the current maze on screen and starts a fresh game on it.
+    void BeginPlaying()
+    {
         // Fit the maze on screen and centre it.
         tileSize_ = (screenHeight - 40) / maze_.Rows();
         offsetX_ = (screenWidth - maze_.Cols() * tileSize_) / 2;
@@ -668,6 +842,10 @@ private:
 
         player_.Reset(maze_);
         PlaceFruits();
+
+        hintPath_.clear();
+        hintMessage_.clear();
+        showSolvers_ = false;
 
         won_ = false;
         lost_ = false;
@@ -677,6 +855,8 @@ private:
     }
 
     enum class Field { None, User, Pass };
+
+    const char* const difficultyNames[3] = {"Easy", "Medium", "Hard"};
 
     Maze maze_;
     Player player_;
@@ -707,7 +887,17 @@ private:
     Screen screen_ = Screen::Login;
     MazeDifficulty difficulty_ = MAZE_DIFFICULTY_MEDIUM;
     bool resultSaved_ = false;
+    bool adaptive_ = false;
     std::string ratingText_;
+    std::vector<int> hintPath_;
+    std::string hintMessage_;
+
+    // The solver comparison shown with the C key.
+    static constexpr int solverCount = 4;
+    bool showSolvers_ = false;
+    SolveResult solverResults_[solverCount];
+    const char* solverNames_[solverCount] = {"", "", "", ""};
+    const Color solverColors_[solverCount] = {SKYBLUE, ORANGE, MAGENTA, WHITE};
     MazeLeaderboardEntry board_[MAZE_LEADERBOARD_MAX];
     int boardCount_ = 0;
     std::string boardMessage_;
