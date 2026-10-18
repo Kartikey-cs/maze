@@ -19,6 +19,11 @@ up to a maximum of 100. After winning or running out of stamina, press **Enter**
 to return to the menu and start a new maze. **LOG OUT** on the menu goes back to
 the login screen. Close the window to exit.
 
+Every maze is checked with the stamina planner, so it can always be won with the
+stamina and fruit on it. Hard mazes are often rejected, so Hard may take a moment
+to start. Press **H** while playing to see the best route from where you are now
+(yellow dots). Moving makes the hint disappear.
+
 The playable game generates a new random maze for the selected difficulty.
 The separate training pipeline generates mazes and scores their difficulty for
 simulated players.
