@@ -18,7 +18,7 @@ RAYLIB_CFLAGS ?=
 RAYLIB_LIBS ?= -lraylib
 endif
 
-.PHONY: all test dataset train check-model game cli menu
+.PHONY: all test dataset train check-model game cli menu lab
 .DELETE_ON_ERROR:
 all: build/maze_dataset
 
@@ -70,6 +70,15 @@ build/maze_stats.o: src/maze_stats.c vendor/sqlite3.h $(HEADERS) | build
 build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
+build/maze_heap.o: src/maze_heap.c $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_heap.c -o $@
+
+build/maze_solvers_test: tests/maze_solvers_test.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) tests/maze_solvers_test.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o -o $@
+
+build/maze_lab: src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o -o $@
+
 build/maze_cli: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
 
@@ -79,6 +88,7 @@ build/menu: src/menu.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
 game: build/maze_game
 cli: build/maze_cli
 menu: build/menu
+lab: build/maze_lab
 
 dataset: build/maze_dataset
 	mkdir -p data
@@ -92,11 +102,12 @@ train: dataset
 check-model: build/maze_model_score
 	$(PYTHON) tools/verify_model.py data/maze_data.csv model/maze_model.json ./build/maze_model_score
 
-test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_planner_test build/maze_auth_test build/maze_stats_test build/maze_dataset
+test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_planner_test build/maze_solvers_test build/maze_auth_test build/maze_stats_test build/maze_dataset
 	./build/maze_features_test
 	./build/maze_sim_test
 	./build/maze_generator_test
 	./build/maze_planner_test
+	./build/maze_solvers_test
 	mkdir -p build/auth_test && cd build/auth_test && rm -f maze_game.db && ../maze_auth_test
 	mkdir -p build/stats_test && cd build/stats_test && rm -f maze_game.db play_log.csv && ../maze_stats_test
 	CC="$(CC)" $(PYTHON) -m unittest discover -s tests -p '*_test.py'

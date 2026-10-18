@@ -109,6 +109,7 @@ model against the baseline, and exports the weights to C.
 | `make` | Builds the C dataset generator; does not launch the game |
 | `make game` | Builds the main game |
 | `make cli` | Builds the terminal maze generator |
+| `make lab` | Builds the solver comparison (BFS, DFS, Dijkstra, A*); run `./build/maze_lab` |
 | `make menu` | Builds the standalone login/signup window |
 | `make test` | Runs all automated tests and score verification |
 | `make dataset` | Regenerates `data/maze_data.csv` |
