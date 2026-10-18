@@ -2,28 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include "sqlite3.h"
+#include "maze_auth.h"
 
 #define SCREEN_WIDTH  1280
 #define SCREEN_HEIGHT 720
-#define MAX_LEN 64
-#define USERS_FILE "users.txt"
+#define MAX_LEN MAZE_AUTH_MAX_LEN
 
 typedef enum { MODE_SIGNUP, MODE_LOGIN } Mode;
 typedef enum { FIELD_NONE, FIELD_USER, FIELD_PASS } Field;
 
-
-uint64_t HashPassword(const char *str)
-{
-    uint64_t hash = 14695981039346656037ULL;
-    for (; *str; str++)
-    {
-        hash ^= (unsigned char)(*str);
-        hash *= 1099511628211ULL;
-    }
-    return hash;
-}
 
 // Text input box:
 
@@ -87,108 +74,6 @@ bool DrawButton(Rectangle rect, const char *text, Color base)
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
-
-// File storage: "username:hashhex" per line
-
-bool UsernameExists(const char *username)
-{
-    FILE *f = fopen(USERS_FILE, "r");
-    if (!f) return false;
-
-    char fileUser[MAX_LEN];
-    char fileHash[32];
-    bool found = false;
-
-    while (fscanf(f, "%63[^:]:%31s\n", fileUser, fileHash) == 2)
-    {
-        if (strcmp(fileUser, username) == 0)
-        {
-            found = true;
-            break;
-        }
-    }
-
-    fclose(f);
-    return found;
-}
-
-bool Signup(const char *username, const char *password, char *message) {
-    if (strlen(username) == 0 || strlen(password) == 0) {
-        strcpy(message, "Username/password can't be empty! X");
-        return false;
-    }
-
-    uint64_t hash = HashPassword(password);
-    char hex[32];
-    sprintf(hex, "%016llx", (unsigned long long)hash);
-
-    sqlite3 *db;
-    sqlite3_stmt *res;
-
-    if (sqlite3_open("maze_game.db", &db) != SQLITE_OK) {
-        strcpy(message, "Database connection failed! X");
-        return false;
-    }
-
-    sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT);", NULL, NULL, NULL);
-
-    const char *sql = "INSERT INTO users (username, password) VALUES (?, ?);";
-    bool success = false;
-
-    if (sqlite3_prepare_v2(db, sql, -1, &res, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(res, 1, username, -1, SQLITE_STATIC);
-        sqlite3_bind_text(res, 2, hex, -1, SQLITE_STATIC);
-
-        if (sqlite3_step(res) == SQLITE_DONE) {
-            strcpy(message, "Account created! You can log in now.");
-            success = true;
-        } else {
-            strcpy(message, "Username already exists! X");
-        }
-    } else {
-        strcpy(message, "Database Query Error! X");
-    }
-
-    sqlite3_finalize(res);
-    sqlite3_close(db);
-    return success;
-}
-
-bool Login(const char *username, const char *password, char *message) {
-    uint64_t enteredHash = HashPassword(password);
-    char enteredHex[32];
-    sprintf(enteredHex, "%016llx", (unsigned long long)enteredHash);
-
-    bool success = false;
-    sqlite3 *db;
-    sqlite3_stmt *res;
-
-    if (sqlite3_open("maze_game.db", &db) != SQLITE_OK) {
-        strcpy(message, "Database connection failed! X");
-        return false;
-    }
-
-    const char *sql = "SELECT * FROM users WHERE username = ? AND password = ?;";
-
-    if (sqlite3_prepare_v2(db, sql, -1, &res, NULL) == SQLITE_OK) {
-        sqlite3_bind_text(res, 1, username, -1, SQLITE_STATIC);
-        sqlite3_bind_text(res, 2, enteredHex, -1, SQLITE_STATIC);
-
-        if (sqlite3_step(res) == SQLITE_ROW) {
-            strcpy(message, "Login successful!");
-            success = true;
-        } else {
-            strcpy(message, "Wrong username or password! X");
-        }
-    } else {
-        strcpy(message, "Database Query Error! X");
-    }
-
-    sqlite3_finalize(res);
-    sqlite3_close(db);
-
-    return success;
-}
 
 int main(void)
 {
@@ -280,9 +165,9 @@ int main(void)
         {
             message[0] = '\0';
             if (mode == MODE_SIGNUP)
-                Signup(username, password, message);
+                MazeAuth_Signup(username, password, message, sizeof message);
             else
-                Login(username, password, message);
+                MazeAuth_Login(username, password, message, sizeof message);
         }
 
         if (strlen(message) > 0)

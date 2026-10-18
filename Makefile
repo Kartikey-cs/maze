@@ -7,6 +7,8 @@ CPPFLAGS ?=
 LDLIBS ?= -lm
 HEADERS = $(wildcard include/*.h) Makefile
 
+SQLITE_LIBS ?= -lsqlite3
+
 # Homebrew installs Raylib here; other platforms can override these variables.
 ifneq ($(wildcard /opt/homebrew/include/raylib.h),)
 RAYLIB_CFLAGS ?= -I/opt/homebrew/include
@@ -35,6 +37,12 @@ build/maze_sim_test: tests/maze_sim_test.c src/maze_sim.c src/maze_graph.c $(HEA
 build/maze_generator_test: tests/maze_generator_test.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
+build/maze_auth_test: tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) -o $@
+
+build/maze_stats_test: tests/maze_stats_test.c build/maze_stats.o build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_stats_test.c build/maze_stats.o build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) $(LDLIBS) -o $@
+
 build/maze_model_score: src/maze_model_score.c model/maze_model.h Makefile | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Imodel src/maze_model_score.c -o $@
 
@@ -44,14 +52,23 @@ build/maze_graph.o: src/maze_graph.c $(HEADERS) | build
 build/maze_generator.o: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_generator.c -o $@
 
-build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o $(RAYLIB_LIBS) -o $@
+build/maze_auth.o: src/maze_auth.c vendor/sqlite3.h $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_auth.c -o $@
+
+build/maze_db.o: src/maze_db.c vendor/sqlite3.h $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_db.c -o $@
+
+build/maze_stats.o: src/maze_stats.c vendor/sqlite3.h $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_stats.c -o $@
+
+build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 build/maze_cli: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
 
-build/menu: src/menu.c vendor/sqlite3.h Makefile | build
-	$(CC) $(CPPFLAGS) -Ivendor $(RAYLIB_CFLAGS) $(CFLAGS) src/menu.c $(RAYLIB_LIBS) -lsqlite3 -o $@
+build/menu: src/menu.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CFLAGS) src/menu.c build/maze_auth.o build/maze_db.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 game: build/maze_game
 cli: build/maze_cli
@@ -69,9 +86,11 @@ train: dataset
 check-model: build/maze_model_score
 	$(PYTHON) tools/verify_model.py data/maze_data.csv model/maze_model.json ./build/maze_model_score
 
-test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_dataset
+test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_auth_test build/maze_stats_test build/maze_dataset
 	./build/maze_features_test
 	./build/maze_sim_test
 	./build/maze_generator_test
+	mkdir -p build/auth_test && cd build/auth_test && rm -f maze_game.db && ../maze_auth_test
+	mkdir -p build/stats_test && cd build/stats_test && rm -f maze_game.db play_log.csv && ../maze_stats_test
 	CC="$(CC)" $(PYTHON) -m unittest discover -s tests -p '*_test.py'
 	$(MAKE) check-model

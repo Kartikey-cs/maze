@@ -1,11 +1,15 @@
 #include "raylib.h"
 
+#include "maze_auth.h"
 #include "maze_generator.h"
 #include "maze_graph.h"
 #include "maze_rules.h"
+#include "maze_stats.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <ctime>
+#include <string>
 #include <vector>
 
 namespace {
@@ -25,7 +29,9 @@ Vector2 CellCenter(int row, int col, int offsetX, int offsetY, int tileSize)
 } // namespace
 
 enum class Screen {
+    Login,
     Menu,
+    Leaderboard,
     Playing
 };
 
@@ -46,6 +52,20 @@ bool DrawButton(Rectangle rect, const char *text)
              RAYWHITE);
 
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
+
+// Text box for the login screen. Passwords are drawn as stars.
+void DrawInputBox(Rectangle rect, const std::string& text, bool active, bool hidden)
+{
+    DrawRectangleRec(rect, active ? Color{40, 40, 60, 255} : Color{30, 30, 30, 255});
+    DrawRectangleLinesEx(rect, 2, active ? SKYBLUE : GRAY);
+
+    std::string shown = hidden ? std::string(text.size(), '*') : text;
+    DrawText(shown.c_str(),
+             static_cast<int>(rect.x + 10),
+             static_cast<int>(rect.y + rect.height / 2 - 10),
+             20,
+             WHITE);
 }
 
 class Maze {
@@ -125,12 +145,14 @@ public:
     int row = 0;
     int col = 0;
     int stamina = maxStamina;
+    int moves = 0;
 
     void Reset(const Maze& maze)
     {
         row = maze.StartRow();
         col = maze.StartCol();
         stamina = maxStamina;
+        moves = 0;
     }
 
     bool TryMove(int dRow, int dCol, const Maze& maze)
@@ -145,6 +167,7 @@ public:
         row = nextRow;
         col = nextCol;
         stamina = MazeRules_Move(stamina);
+        moves++;
         return true;
     }
 };
@@ -238,7 +261,13 @@ public:
 private:
     void Update()
     {
-        if (screen_ == Screen::Menu)
+        if (screen_ == Screen::Login)
+        {
+            UpdateLogin();
+            return;
+        }
+
+        if (screen_ == Screen::Menu || screen_ == Screen::Leaderboard)
         {
             return;
         }
@@ -260,6 +289,9 @@ private:
 
         won_ = player_.row == maze_.GoalRow() && player_.col == maze_.GoalCol();
         lost_ = player_.stamina == 0 && !won_;
+
+        if ((won_ || lost_) && !resultSaved_)
+            SaveResult();
     }
 
     void Draw()
@@ -269,9 +301,17 @@ private:
 
         DrawBackground();
 
-        if (screen_ == Screen::Menu)
+        if (screen_ == Screen::Login)
+        {
+            DrawLogin();
+        }
+        else if (screen_ == Screen::Menu)
         {
             DrawMenu();
+        }
+        else if (screen_ == Screen::Leaderboard)
+        {
+            DrawLeaderboard();
         }
         else
         {
@@ -281,21 +321,197 @@ private:
             if (won_) DrawText("YOU ESCAPED!", 515, 330, 40, GREEN);
             if (lost_) DrawText("STAMINA EMPTY", 500, 330, 40, RED);
             if (won_ || lost_) DrawText("Press ENTER for menu", 520, 380, 24, RAYWHITE);
+            if (won_ || lost_) DrawText(ratingText_.c_str(), 520, 420, 22, YELLOW);
         }
 
 
         EndDrawing();
     }
 
+    // Handles typing, clicks and Enter on the login screen.
+    void UpdateLogin()
+    {
+        Vector2 mouse = GetMousePosition();
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (CheckCollisionPointRec(mouse, signupTab_))
+            {
+                signupMode_ = true;
+                message_.clear();
+            }
+            else if (CheckCollisionPointRec(mouse, loginTab_))
+            {
+                signupMode_ = false;
+                message_.clear();
+            }
+
+            if (CheckCollisionPointRec(mouse, userBox_)) field_ = Field::User;
+            else if (CheckCollisionPointRec(mouse, passBox_)) field_ = Field::Pass;
+            else field_ = Field::None;
+        }
+
+        if (IsKeyPressed(KEY_TAB))
+            field_ = (field_ == Field::User) ? Field::Pass : Field::User;
+
+        std::string* text = nullptr;
+        if (field_ == Field::User) text = &username_;
+        if (field_ == Field::Pass) text = &password_;
+
+        if (text)
+        {
+            int letter = GetCharPressed();
+            while (letter > 0)
+            {
+                if (letter >= 32 && letter <= 125 && text->size() < MAZE_AUTH_MAX_LEN - 1)
+                    text->push_back(static_cast<char>(letter));
+                letter = GetCharPressed();
+            }
+
+            if (IsKeyPressed(KEY_BACKSPACE) && !text->empty())
+                text->pop_back();
+        }
+
+        if (IsKeyPressed(KEY_ENTER))
+            SubmitLogin();
+    }
+
+    // Signs up or logs in, depending on the tab that is selected.
+    void SubmitLogin()
+    {
+        char message[128];
+
+        if (signupMode_)
+        {
+            if (MazeAuth_Signup(username_.c_str(), password_.c_str(), message, sizeof message))
+            {
+                signupMode_ = false;   // account created, now log in with it
+                password_.clear();
+            }
+        }
+        else if (MazeAuth_Login(username_.c_str(), password_.c_str(), message, sizeof message))
+        {
+            currentUser_ = username_;
+            rating_ = MAZE_RATING_START;
+            MazeStats_GetRating(currentUser_.c_str(), &rating_);
+            password_.clear();
+            message_.clear();
+            screen_ = Screen::Menu;
+            return;
+        }
+
+        message_ = message;
+    }
+
+    void DrawLogin()
+    {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
+        DrawText("MazeQuest", 505, 90, 54, RAYWHITE);
+
+        DrawRectangleRec(loginPanel_, Color{25, 25, 35, 180});
+        DrawRectangleLinesEx(loginPanel_, 2, GRAY);
+
+        DrawRectangleRec(signupTab_, signupMode_ ? SKYBLUE : Color{40, 40, 50, 255});
+        DrawRectangleRec(loginTab_, signupMode_ ? Color{40, 40, 50, 255} : SKYBLUE);
+        DrawText("SIGN UP", static_cast<int>(signupTab_.x + 20), static_cast<int>(signupTab_.y + 15), 20, WHITE);
+        DrawText("LOG IN", static_cast<int>(loginTab_.x + 30), static_cast<int>(loginTab_.y + 15), 20, WHITE);
+
+        DrawText("Username:", static_cast<int>(userBox_.x), static_cast<int>(userBox_.y - 22), 16, LIGHTGRAY);
+        DrawInputBox(userBox_, username_, field_ == Field::User, false);
+
+        DrawText("Password:", static_cast<int>(passBox_.x), static_cast<int>(passBox_.y - 22), 16, LIGHTGRAY);
+        DrawInputBox(passBox_, password_, field_ == Field::Pass, true);
+
+        if (DrawButton(submitButton_, signupMode_ ? "CREATE ACCOUNT" : "LOG IN"))
+            SubmitLogin();
+
+        if (!message_.empty())
+            DrawText(message_.c_str(), static_cast<int>(loginPanel_.x + 30), static_cast<int>(submitButton_.y + 70), 18, YELLOW);
+    }
+
+    // Saves the finished game once and works out the new rating.
+    void SaveResult()
+    {
+        double before = rating_;
+        resultSaved_ = true;
+
+        if (MazeStats_RecordPlay(currentUser_.c_str(), static_cast<int>(difficulty_),
+                                 maze_.Rows(), maze_.Cols(), won_, player_.moves,
+                                 player_.stamina, &rating_))
+        {
+            char text[64];
+            std::snprintf(text, sizeof text, "Rating %.0f -> %.0f (%+.0f)", before, rating_, rating_ - before);
+            ratingText_ = text;
+        }
+        else
+        {
+            ratingText_ = "Could not save this game.";
+        }
+    }
+
+    void OpenLeaderboard()
+    {
+        boardCount_ = MazeStats_Leaderboard(board_, MAZE_LEADERBOARD_MAX);
+        if (boardCount_ < 0) boardCount_ = 0;
+        boardMessage_.clear();
+        screen_ = Screen::Leaderboard;
+    }
+
+    void DrawLeaderboard()
+    {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
+        DrawRectangle(300, 80, 680, 560, Color{25, 25, 35, 200});
+        DrawRectangleLines(300, 80, 680, 560, GRAY);
+        DrawText("LEADERBOARD", 520, 100, 32, RAYWHITE);
+
+        DrawText("#", 330, 155, 18, LIGHTGRAY);
+        DrawText("Player", 380, 155, 18, LIGHTGRAY);
+        DrawText("Rating", 650, 155, 18, LIGHTGRAY);
+        DrawText("Games", 760, 155, 18, LIGHTGRAY);
+        DrawText("Wins", 860, 155, 18, LIGHTGRAY);
+
+        for (int i = 0; i < boardCount_; i++)
+        {
+            int y = 188 + i * 30;
+            Color color = (currentUser_ == board_[i].username) ? YELLOW : RAYWHITE;
+
+            DrawText(TextFormat("%d", i + 1), 330, y, 20, color);
+            DrawText(board_[i].username, 380, y, 20, color);
+            DrawText(TextFormat("%.0f", board_[i].rating), 650, y, 20, color);
+            DrawText(TextFormat("%d", board_[i].games), 760, y, 20, color);
+            DrawText(TextFormat("%d", board_[i].wins), 860, y, 20, color);
+        }
+
+        if (boardCount_ == 0)
+            DrawText("No players yet.", 380, 190, 20, LIGHTGRAY);
+
+        if (DrawButton(Rectangle{330, 520, 200, 50}, "BACK"))
+            screen_ = Screen::Menu;
+
+        if (DrawButton(Rectangle{560, 520, 250, 50}, "EXPORT CSV"))
+        {
+            int rows = MazeStats_ExportCsv("play_log.csv");
+            boardMessage_ = (rows >= 0)
+                ? "Saved " + std::to_string(rows) + " games to play_log.csv"
+                : "Could not write play_log.csv";
+        }
+
+        if (!boardMessage_.empty())
+            DrawText(boardMessage_.c_str(), 330, 590, 18, YELLOW);
+    }
+
     void DrawMenu()
     {
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
-        DrawText("MazeQuest", 505, 170, 54, RAYWHITE);
+        DrawText("MazeQuest", 505, 120, 54, RAYWHITE);
+        DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 195, 22, RAYWHITE);
 
-        Rectangle easyButton = {520, 280, 240, 58};
-        Rectangle mediumButton = {520, 350, 240, 58};
-        Rectangle hardButton = {520, 420, 240, 58};
-        Rectangle quitButton = {520, 490, 240, 58};
+        Rectangle easyButton = {520, 240, 240, 54};
+        Rectangle mediumButton = {520, 304, 240, 54};
+        Rectangle hardButton = {520, 368, 240, 54};
+        Rectangle boardButton = {520, 432, 240, 54};
+        Rectangle logoutButton = {520, 496, 240, 54};
+        Rectangle quitButton = {520, 560, 240, 54};
 
         if (DrawButton(easyButton, "EASY"))
             StartGame(MAZE_DIFFICULTY_EASY);
@@ -306,11 +522,25 @@ private:
         if (DrawButton(hardButton, "HARD"))
             StartGame(MAZE_DIFFICULTY_HARD);
 
+        if (DrawButton(boardButton, "LEADERBOARD"))
+            OpenLeaderboard();
+
+        if (DrawButton(logoutButton, "LOG OUT"))
+        {
+            currentUser_.clear();
+            rating_ = MAZE_RATING_START;
+            username_.clear();
+            password_.clear();
+            message_.clear();
+            field_ = Field::None;
+            screen_ = Screen::Login;
+        }
+
         if (DrawButton(quitButton, "QUIT"))
             quit_ = true;
 
         if (mazeFailed_)
-            DrawText("Could not make a valid maze. Try again.", 460, 570, 20, RED);
+            DrawText("Could not make a valid maze. Try again.", 460, 640, 20, RED);
     }
 
     void DrawBackground()
@@ -396,6 +626,7 @@ private:
         DrawRectangle(36, 58, 240, 16, DARKGRAY);
         DrawRectangle(36, 58, static_cast<int>(240 * (player_.stamina / static_cast<float>(maxStamina))), 16, GREEN);
         DrawText(TextFormat("%d", player_.stamina), 288, 54, 22, RAYWHITE);
+        DrawText(TextFormat("Player: %s", currentUser_.c_str()), 36, 90, 20, RAYWHITE);
     }
 
     // Puts the fruit on random open cells (not the start or the goal).
@@ -426,6 +657,7 @@ private:
 
     void StartGame(MazeDifficulty difficulty)
     {
+        difficulty_ = difficulty;
         mazeFailed_ = !maze_.Generate(difficulty);
         if (mazeFailed_) return;
 
@@ -439,11 +671,31 @@ private:
 
         won_ = false;
         lost_ = false;
+        resultSaved_ = false;
+        ratingText_.clear();
         screen_ = Screen::Playing;
     }
 
+    enum class Field { None, User, Pass };
+
     Maze maze_;
     Player player_;
+
+    // Login screen: layout, what has been typed, and who is logged in.
+    Rectangle loginPanel_{420, 160, 440, 400};
+    Rectangle signupTab_{420, 160, 220, 50};
+    Rectangle loginTab_{640, 160, 220, 50};
+    Rectangle userBox_{450, 260, 380, 45};
+    Rectangle passBox_{450, 330, 380, 45};
+    Rectangle submitButton_{450, 400, 380, 50};
+    std::string username_;
+    std::string password_;
+    std::string message_;
+    std::string currentUser_;
+    double rating_ = MAZE_RATING_START;
+    Field field_ = Field::None;
+    bool signupMode_ = false;
+
     int tileSize_ = 30;
     int offsetX_ = 0;
     int offsetY_ = 0;
@@ -452,7 +704,13 @@ private:
     Texture2D playerTexture_{};
     Texture2D fruitIcons_[4]{};
     std::vector<Fruit> fruits_;
-    Screen screen_ = Screen::Menu;
+    Screen screen_ = Screen::Login;
+    MazeDifficulty difficulty_ = MAZE_DIFFICULTY_MEDIUM;
+    bool resultSaved_ = false;
+    std::string ratingText_;
+    MazeLeaderboardEntry board_[MAZE_LEADERBOARD_MAX];
+    int boardCount_ = 0;
+    std::string boardMessage_;
     bool won_ = false;
     bool lost_ = false;
     bool mazeFailed_ = false;
