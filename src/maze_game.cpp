@@ -31,6 +31,7 @@ Vector2 CellCenter(int row, int col, int offsetX, int offsetY, int tileSize)
 enum class Screen {
     Login,
     Menu,
+    Leaderboard,
     Playing
 };
 
@@ -266,7 +267,7 @@ private:
             return;
         }
 
-        if (screen_ == Screen::Menu)
+        if (screen_ == Screen::Menu || screen_ == Screen::Leaderboard)
         {
             return;
         }
@@ -307,6 +308,10 @@ private:
         else if (screen_ == Screen::Menu)
         {
             DrawMenu();
+        }
+        else if (screen_ == Screen::Leaderboard)
+        {
+            DrawLeaderboard();
         }
         else
         {
@@ -444,17 +449,69 @@ private:
         }
     }
 
+    void OpenLeaderboard()
+    {
+        boardCount_ = MazeStats_Leaderboard(board_, MAZE_LEADERBOARD_MAX);
+        if (boardCount_ < 0) boardCount_ = 0;
+        boardMessage_.clear();
+        screen_ = Screen::Leaderboard;
+    }
+
+    void DrawLeaderboard()
+    {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
+        DrawRectangle(300, 80, 680, 560, Color{25, 25, 35, 200});
+        DrawRectangleLines(300, 80, 680, 560, GRAY);
+        DrawText("LEADERBOARD", 520, 100, 32, RAYWHITE);
+
+        DrawText("#", 330, 155, 18, LIGHTGRAY);
+        DrawText("Player", 380, 155, 18, LIGHTGRAY);
+        DrawText("Rating", 650, 155, 18, LIGHTGRAY);
+        DrawText("Games", 760, 155, 18, LIGHTGRAY);
+        DrawText("Wins", 860, 155, 18, LIGHTGRAY);
+
+        for (int i = 0; i < boardCount_; i++)
+        {
+            int y = 188 + i * 30;
+            Color color = (currentUser_ == board_[i].username) ? YELLOW : RAYWHITE;
+
+            DrawText(TextFormat("%d", i + 1), 330, y, 20, color);
+            DrawText(board_[i].username, 380, y, 20, color);
+            DrawText(TextFormat("%.0f", board_[i].rating), 650, y, 20, color);
+            DrawText(TextFormat("%d", board_[i].games), 760, y, 20, color);
+            DrawText(TextFormat("%d", board_[i].wins), 860, y, 20, color);
+        }
+
+        if (boardCount_ == 0)
+            DrawText("No players yet.", 380, 190, 20, LIGHTGRAY);
+
+        if (DrawButton(Rectangle{330, 520, 200, 50}, "BACK"))
+            screen_ = Screen::Menu;
+
+        if (DrawButton(Rectangle{560, 520, 250, 50}, "EXPORT CSV"))
+        {
+            int rows = MazeStats_ExportCsv("play_log.csv");
+            boardMessage_ = (rows >= 0)
+                ? "Saved " + std::to_string(rows) + " games to play_log.csv"
+                : "Could not write play_log.csv";
+        }
+
+        if (!boardMessage_.empty())
+            DrawText(boardMessage_.c_str(), 330, 590, 18, YELLOW);
+    }
+
     void DrawMenu()
     {
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
-        DrawText("MazeQuest", 505, 150, 54, RAYWHITE);
-        DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 225, 22, RAYWHITE);
+        DrawText("MazeQuest", 505, 120, 54, RAYWHITE);
+        DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 195, 22, RAYWHITE);
 
-        Rectangle easyButton = {520, 280, 240, 58};
-        Rectangle mediumButton = {520, 350, 240, 58};
-        Rectangle hardButton = {520, 420, 240, 58};
-        Rectangle logoutButton = {520, 490, 240, 58};
-        Rectangle quitButton = {520, 560, 240, 58};
+        Rectangle easyButton = {520, 240, 240, 54};
+        Rectangle mediumButton = {520, 304, 240, 54};
+        Rectangle hardButton = {520, 368, 240, 54};
+        Rectangle boardButton = {520, 432, 240, 54};
+        Rectangle logoutButton = {520, 496, 240, 54};
+        Rectangle quitButton = {520, 560, 240, 54};
 
         if (DrawButton(easyButton, "EASY"))
             StartGame(MAZE_DIFFICULTY_EASY);
@@ -464,6 +521,9 @@ private:
 
         if (DrawButton(hardButton, "HARD"))
             StartGame(MAZE_DIFFICULTY_HARD);
+
+        if (DrawButton(boardButton, "LEADERBOARD"))
+            OpenLeaderboard();
 
         if (DrawButton(logoutButton, "LOG OUT"))
         {
@@ -648,6 +708,9 @@ private:
     MazeDifficulty difficulty_ = MAZE_DIFFICULTY_MEDIUM;
     bool resultSaved_ = false;
     std::string ratingText_;
+    MazeLeaderboardEntry board_[MAZE_LEADERBOARD_MAX];
+    int boardCount_ = 0;
+    std::string boardMessage_;
     bool won_ = false;
     bool lost_ = false;
     bool mazeFailed_ = false;
