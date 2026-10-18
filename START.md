@@ -26,6 +26,11 @@ stamina and fruit on it. Hard mazes are often rejected, so Hard may take a momen
 to start. Press **H** while playing to see the best route from where you are now
 (yellow dots). Moving makes the hint disappear.
 
+Press **C** to compare four solvers (BFS, DFS, Dijkstra, A*) on the current maze, from
+the start to the exit. A table shows how many squares each one checked, how long its
+route was and how long it took, and each route is drawn in its own colour (blue BFS,
+orange DFS, magenta Dijkstra, white A*). Press **C** again to hide it.
+
 The playable game generates a new random maze for the selected difficulty.
 The separate training pipeline generates mazes and scores their difficulty for
 simulated players.

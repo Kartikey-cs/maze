@@ -67,6 +67,9 @@ build/maze_features.o: src/maze_features.c $(HEADERS) | build
 build/maze_adaptive.o: src/maze_adaptive.c model/maze_model.h $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -I. $(CFLAGS) -c src/maze_adaptive.c -o $@
 
+build/maze_solvers.o: src/maze_solvers.cpp include/maze_solvers.hpp $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) -c src/maze_solvers.cpp -o $@
+
 build/maze_auth.o: src/maze_auth.c vendor/sqlite3.h $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_auth.c -o $@
 
@@ -76,8 +79,8 @@ build/maze_db.o: src/maze_db.c vendor/sqlite3.h $(HEADERS) | build
 build/maze_stats.o: src/maze_stats.c vendor/sqlite3.h $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_stats.c -o $@
 
-build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
+build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o build/maze_solvers.o build/maze_heap.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o build/maze_solvers.o build/maze_heap.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 build/maze_heap.o: src/maze_heap.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_heap.c -o $@
