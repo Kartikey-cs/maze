@@ -4,8 +4,10 @@
 #include "maze_generator.h"
 #include "maze_graph.h"
 #include "maze_rules.h"
+#include "maze_stats.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -142,12 +144,14 @@ public:
     int row = 0;
     int col = 0;
     int stamina = maxStamina;
+    int moves = 0;
 
     void Reset(const Maze& maze)
     {
         row = maze.StartRow();
         col = maze.StartCol();
         stamina = maxStamina;
+        moves = 0;
     }
 
     bool TryMove(int dRow, int dCol, const Maze& maze)
@@ -162,6 +166,7 @@ public:
         row = nextRow;
         col = nextCol;
         stamina = MazeRules_Move(stamina);
+        moves++;
         return true;
     }
 };
@@ -283,6 +288,9 @@ private:
 
         won_ = player_.row == maze_.GoalRow() && player_.col == maze_.GoalCol();
         lost_ = player_.stamina == 0 && !won_;
+
+        if ((won_ || lost_) && !resultSaved_)
+            SaveResult();
     }
 
     void Draw()
@@ -308,6 +316,7 @@ private:
             if (won_) DrawText("YOU ESCAPED!", 515, 330, 40, GREEN);
             if (lost_) DrawText("STAMINA EMPTY", 500, 330, 40, RED);
             if (won_ || lost_) DrawText("Press ENTER for menu", 520, 380, 24, RAYWHITE);
+            if (won_ || lost_) DrawText(ratingText_.c_str(), 520, 420, 22, YELLOW);
         }
 
 
@@ -378,6 +387,8 @@ private:
         else if (MazeAuth_Login(username_.c_str(), password_.c_str(), message, sizeof message))
         {
             currentUser_ = username_;
+            rating_ = MAZE_RATING_START;
+            MazeStats_GetRating(currentUser_.c_str(), &rating_);
             password_.clear();
             message_.clear();
             screen_ = Screen::Menu;
@@ -413,11 +424,31 @@ private:
             DrawText(message_.c_str(), static_cast<int>(loginPanel_.x + 30), static_cast<int>(submitButton_.y + 70), 18, YELLOW);
     }
 
+    // Saves the finished game once and works out the new rating.
+    void SaveResult()
+    {
+        double before = rating_;
+        resultSaved_ = true;
+
+        if (MazeStats_RecordPlay(currentUser_.c_str(), static_cast<int>(difficulty_),
+                                 maze_.Rows(), maze_.Cols(), won_, player_.moves,
+                                 player_.stamina, &rating_))
+        {
+            char text[64];
+            std::snprintf(text, sizeof text, "Rating %.0f -> %.0f (%+.0f)", before, rating_, rating_ - before);
+            ratingText_ = text;
+        }
+        else
+        {
+            ratingText_ = "Could not save this game.";
+        }
+    }
+
     void DrawMenu()
     {
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 120});
         DrawText("MazeQuest", 505, 150, 54, RAYWHITE);
-        DrawText(TextFormat("Logged in as %s", currentUser_.c_str()), 520, 225, 22, RAYWHITE);
+        DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 225, 22, RAYWHITE);
 
         Rectangle easyButton = {520, 280, 240, 58};
         Rectangle mediumButton = {520, 350, 240, 58};
@@ -437,6 +468,7 @@ private:
         if (DrawButton(logoutButton, "LOG OUT"))
         {
             currentUser_.clear();
+            rating_ = MAZE_RATING_START;
             username_.clear();
             password_.clear();
             message_.clear();
@@ -565,6 +597,7 @@ private:
 
     void StartGame(MazeDifficulty difficulty)
     {
+        difficulty_ = difficulty;
         mazeFailed_ = !maze_.Generate(difficulty);
         if (mazeFailed_) return;
 
@@ -578,6 +611,8 @@ private:
 
         won_ = false;
         lost_ = false;
+        resultSaved_ = false;
+        ratingText_.clear();
         screen_ = Screen::Playing;
     }
 
@@ -597,6 +632,7 @@ private:
     std::string password_;
     std::string message_;
     std::string currentUser_;
+    double rating_ = MAZE_RATING_START;
     Field field_ = Field::None;
     bool signupMode_ = false;
 
@@ -609,6 +645,9 @@ private:
     Texture2D fruitIcons_[4]{};
     std::vector<Fruit> fruits_;
     Screen screen_ = Screen::Login;
+    MazeDifficulty difficulty_ = MAZE_DIFFICULTY_MEDIUM;
+    bool resultSaved_ = false;
+    std::string ratingText_;
     bool won_ = false;
     bool lost_ = false;
     bool mazeFailed_ = false;
