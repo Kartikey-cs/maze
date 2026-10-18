@@ -10,10 +10,14 @@ make game
 ./build/maze_game
 ```
 
-Choose **EASY**, **MEDIUM**, or **HARD**, then use **WASD** or the **arrow keys** to move. Reach the
+The game opens on a login screen. Use **SIGN UP** to create an account the first
+time, then **LOG IN** (Tab switches between the boxes, Enter submits). Accounts are
+stored in `maze_game.db`, which is created in the folder you run the game from.
+After logging in, choose **EASY**, **MEDIUM**, or **HARD**, then use **WASD** or the **arrow keys** to move. Reach the
 exit before stamina runs out. Each move costs 1 stamina; each fruit restores 20,
 up to a maximum of 100. After winning or running out of stamina, press **Enter**
-to return to the menu and start a new maze. Close the window to exit.
+to return to the menu and start a new maze. **LOG OUT** on the menu goes back to
+the login screen. Close the window to exit.
 
 The playable game generates a new random maze for the selected difficulty.
 The separate training pipeline generates mazes and scores their difficulty for
@@ -23,7 +27,7 @@ simulated players.
 
 | What you want to run | Requirements |
 | --- | --- |
-| Main game | C11 compiler, C++17 compiler, GNU Make, Raylib |
+| Main game | C11 compiler, C++17 compiler, GNU Make, Raylib, SQLite library |
 | Terminal maze generator | C11 compiler, GNU Make |
 | Login/signup prototype | C11 compiler, GNU Make, Raylib, SQLite library |
 | Tests and model training | C11 compiler, GNU Make, Python 3.10+ |
@@ -71,8 +75,8 @@ make menu
 ./build/menu
 ```
 
-This opens the separate login/signup interface. It is a prototype and is not
-connected to the main game's start screen.
+This opens the standalone login/signup window. The main game now has the same
+login screen built in, and both use the same code (`src/maze_auth.c`).
 
 ## Tests and model training
 
@@ -100,7 +104,7 @@ model against the baseline, and exports the weights to C.
 | `make` | Builds the C dataset generator; does not launch the game |
 | `make game` | Builds the main game |
 | `make cli` | Builds the terminal maze generator |
-| `make menu` | Builds the login/signup prototype |
+| `make menu` | Builds the standalone login/signup window |
 | `make test` | Runs all automated tests and score verification |
 | `make dataset` | Regenerates `data/maze_data.csv` |
 | `make train` | Regenerates data, trains/exports the model, verifies scores |

@@ -47,7 +47,7 @@ The playable hybrid build is split the way the proposal describes:
 
 - `src/maze_graph.c` / `include/maze_graph.h`: C data-structure layer. It builds the maze as a graph with adjacency lists and implements BFS with a queue plus DFS with a stack.
 - `src/maze_game.cpp`: C++ game layer. It uses simple `Maze`, `Player`, `Fruit`, and `Game` classes to show object-oriented programming. It also contains the start menu and game screen flow.
-- `src/menu.c`: separate C login/signup prototype with SQLite. The hybrid gameplay executable has its own simple start menu.
+- `src/maze_auth.c` / `include/maze_auth.h`: C signup and login on SQLite. The game opens on a login screen that uses it, and `src/menu.c` is a standalone login window that shares the same code.
 
 Each game generates a new random maze with `src/maze_generator.c`. The size
 (15, 21 or 31 cells wide), number of fruits, and start and goal cells come from
@@ -61,7 +61,8 @@ Build the hybrid game with MSYS2 UCRT64. Compile the C data-structure file with 
 mkdir -p build
 gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_graph.c -o build/maze_graph.o
 gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_generator.c -o build/maze_generator.o
-g++ -Wall -Wextra -std=c++17 -Iinclude src/maze_game.cpp build/maze_graph.o build/maze_generator.o -o build/MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc -Wall -Wextra -std=c11 -Iinclude -Ivendor -c src/maze_auth.c -o build/maze_auth.o
+g++ -Wall -Wextra -std=c++17 -Iinclude src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o -o build/MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm -lsqlite3
 ```
 
 ## Maze features, simulated players, and difficulty model
