@@ -37,8 +37,8 @@ build/maze_sim_test: tests/maze_sim_test.c src/maze_sim.c src/maze_graph.c $(HEA
 build/maze_generator_test: tests/maze_generator_test.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
-build/maze_auth_test: tests/maze_auth_test.c build/maze_auth.o $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) tests/maze_auth_test.c build/maze_auth.o $(SQLITE_LIBS) -o $@
+build/maze_auth_test: tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) -o $@
 
 build/maze_model_score: src/maze_model_score.c model/maze_model.h Makefile | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Imodel src/maze_model_score.c -o $@
@@ -52,14 +52,17 @@ build/maze_generator.o: src/maze_generator.c $(HEADERS) | build
 build/maze_auth.o: src/maze_auth.c vendor/sqlite3.h $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_auth.c -o $@
 
-build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
+build/maze_db.o: src/maze_db.c vendor/sqlite3.h $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_db.c -o $@
+
+build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 build/maze_cli: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
 
-build/menu: src/menu.c build/maze_auth.o $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CFLAGS) src/menu.c build/maze_auth.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
+build/menu: src/menu.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CFLAGS) src/menu.c build/maze_auth.o build/maze_db.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 game: build/maze_game
 cli: build/maze_cli
