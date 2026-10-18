@@ -1,5 +1,6 @@
 #include "raylib.h"
 
+#include "maze_adaptive.h"
 #include "maze_auth.h"
 #include "maze_generator.h"
 #include "maze_graph.h"
@@ -569,12 +570,13 @@ private:
         DrawText("MazeQuest", 505, 120, 54, RAYWHITE);
         DrawText(TextFormat("Logged in as %s   Rating: %.0f", currentUser_.c_str(), rating_), 460, 195, 22, RAYWHITE);
 
-        Rectangle easyButton = {520, 240, 240, 54};
-        Rectangle mediumButton = {520, 304, 240, 54};
-        Rectangle hardButton = {520, 368, 240, 54};
-        Rectangle boardButton = {520, 432, 240, 54};
-        Rectangle logoutButton = {520, 496, 240, 54};
-        Rectangle quitButton = {520, 560, 240, 54};
+        Rectangle easyButton = {520, 235, 240, 52};
+        Rectangle mediumButton = {520, 297, 240, 52};
+        Rectangle hardButton = {520, 359, 240, 52};
+        Rectangle adaptiveButton = {520, 421, 240, 52};
+        Rectangle boardButton = {520, 483, 240, 52};
+        Rectangle logoutButton = {520, 545, 240, 52};
+        Rectangle quitButton = {520, 607, 240, 52};
 
         if (DrawButton(easyButton, "EASY"))
             StartGame(MAZE_DIFFICULTY_EASY);
@@ -584,6 +586,9 @@ private:
 
         if (DrawButton(hardButton, "HARD"))
             StartGame(MAZE_DIFFICULTY_HARD);
+
+        if (DrawButton(adaptiveButton, "ADAPTIVE"))
+            StartAdaptive();
 
         if (DrawButton(boardButton, "LEADERBOARD"))
             OpenLeaderboard();
@@ -603,7 +608,7 @@ private:
             quit_ = true;
 
         if (mazeFailed_)
-            DrawText("Could not make a valid maze. Try again.", 460, 640, 20, RED);
+            DrawText("Could not make a valid maze. Try again.", 460, 672, 20, RED);
     }
 
     void DrawBackground()
@@ -700,6 +705,9 @@ private:
         DrawText("H: hint", 36, 115, 18, LIGHTGRAY);
         if (!hintMessage_.empty())
             DrawText(hintMessage_.c_str(), 36, 140, 18, YELLOW);
+        if (adaptive_)
+            DrawText(TextFormat("Adaptive maze (%s)", difficultyNames[static_cast<int>(difficulty_)]),
+                     36, 165, 18, SKYBLUE);
     }
 
     // Makes the fruit objects for the cells the maze chose.
@@ -731,8 +739,26 @@ private:
     void StartGame(MazeDifficulty difficulty)
     {
         difficulty_ = difficulty;
+        adaptive_ = false;
         mazeFailed_ = !MakeWinnableMaze(difficulty);
         if (mazeFailed_) return;
+        BeginPlaying();
+    }
+
+    // Lets the adaptive controller choose a maze that fits the player's rating.
+    void StartAdaptive()
+    {
+        MazeChoice choice;
+        unsigned int seed = static_cast<unsigned int>(GetRandomValue(1, 1000000000));
+
+        // The same difficulty and seed give back exactly the maze the controller scored.
+        mazeFailed_ = !MazeAdaptive_Choose(rating_, seed, &choice) ||
+                      !maze_.Generate(choice.difficulty, choice.seed) ||
+                      !maze_.IsWinnable();
+        if (mazeFailed_) return;
+
+        difficulty_ = choice.difficulty;
+        adaptive_ = true;
         BeginPlaying();
     }
 
@@ -758,6 +784,8 @@ private:
     }
 
     enum class Field { None, User, Pass };
+
+    const char* const difficultyNames[3] = {"Easy", "Medium", "Hard"};
 
     Maze maze_;
     Player player_;
@@ -788,6 +816,7 @@ private:
     Screen screen_ = Screen::Login;
     MazeDifficulty difficulty_ = MAZE_DIFFICULTY_MEDIUM;
     bool resultSaved_ = false;
+    bool adaptive_ = false;
     std::string ratingText_;
     std::vector<int> hintPath_;
     std::string hintMessage_;

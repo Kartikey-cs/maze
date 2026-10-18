@@ -13,7 +13,9 @@ make game
 The game opens on a login screen. Use **SIGN UP** to create an account the first
 time, then **LOG IN** (Tab switches between the boxes, Enter submits). Accounts are
 stored in `maze_game.db`, which is created in the folder you run the game from.
-After logging in, choose **EASY**, **MEDIUM**, or **HARD**, then use **WASD** or the **arrow keys** to move. Reach the
+After logging in, choose **EASY**, **MEDIUM**, **HARD**, or **ADAPTIVE** (the game makes
+several mazes, drops the ones that cannot be won, and picks the one that suits your
+rating), then use **WASD** or the **arrow keys** to move. Reach the
 exit before stamina runs out. Each move costs 1 stamina; each fruit restores 20,
 up to a maximum of 100. After winning or running out of stamina, press **Enter**
 to return to the menu and start a new maze. **LOG OUT** on the menu goes back to
