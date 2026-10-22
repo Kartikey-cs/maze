@@ -11,9 +11,6 @@
 typedef enum { MODE_SIGNUP, MODE_LOGIN } Mode;
 typedef enum { FIELD_NONE, FIELD_USER, FIELD_PASS } Field;
 
-
-// Text input box:
-
 void DrawInputBox(Rectangle rect, const char *text, bool active, bool mask)
 {
     DrawRectangleRec(rect, active ? (Color){40,40,60,255} : (Color){30,30,30,255});
@@ -54,9 +51,6 @@ void UpdateTextField(char *buffer)
         buffer[len - 1] = '\0';
 }
 
-
-// Button 
-
 bool DrawButton(Rectangle rect, const char *text, Color base)
 {
     Vector2 mouse = GetMousePosition();
@@ -73,7 +67,6 @@ bool DrawButton(Rectangle rect, const char *text, Color base)
 
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
-
 
 int main(void)
 {
@@ -102,8 +95,6 @@ int main(void)
     while (!WindowShouldClose())
     {
 
-        // Input handling
-
         Vector2 mouse = GetMousePosition();
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -118,9 +109,6 @@ int main(void)
 
         if (active == FIELD_USER) UpdateTextField(username);
         else if (active == FIELD_PASS) UpdateTextField(password);
-
-
-        // Draw
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -137,7 +125,6 @@ int main(void)
         DrawRectangleRec(panel, (Color){25,25,35,180});
         DrawRectangleLinesEx(panel, 2, GRAY);
 
-        // Tabs to switch between Sign Up / Log In
         DrawRectangleRec(signupTab, mode == MODE_SIGNUP ? SKYBLUE : (Color){40,40,50,255});
         DrawRectangleRec(loginTab,  mode == MODE_LOGIN  ? SKYBLUE : (Color){40,40,50,255});
         DrawText("SIGN UP", signupTab.x + 20, signupTab.y + 15, 20, WHITE);

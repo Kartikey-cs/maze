@@ -1,8 +1,5 @@
-// Solver comparison: runs BFS, DFS, Dijkstra and A* on the same generated mazes
-// and prints how many squares each one looked at, how long its route was, and how
-// long it took.
-//
-//   ./build/maze_lab [number_of_mazes_per_difficulty]
+// Runs BFS, DFS, Dijkstra and A* on the same generated mazes and prints squares checked,
+// route length and time.   Usage: ./build/maze_lab [mazes per difficulty]
 
 #include "maze_generator.h"
 #include "maze_graph.h"
@@ -13,7 +10,7 @@
 
 namespace {
 
-constexpr int timingRuns = 20;      // each solver is timed this many times per maze
+constexpr int timingRuns = 20;
 
 }
 

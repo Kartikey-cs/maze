@@ -9,10 +9,8 @@
 #define STAMINA_LEVELS (MAZE_STAMINA_MAX + 1)
 #define UNSEEN (-1)
 
-/* Checks the input and numbers the fruit 0, 1, 2... in fruit_bit[vertex]
- * (-1 where there is none). Fruit on the start vertex is ignored, because the
- * player has already picked it up. Returns how many fruit were numbered, or -1
- * for bad input. */
+/* Numbers the fruit 0, 1, 2... in fruit_bit[vertex] (-1 where there is none). Fruit on
+ * the start vertex is ignored. Returns how many were numbered, or -1 for bad input. */
 static int NumberFruit(const MazeGraph *graph, int start, const int *fruits,
                        int fruit_count, int *fruit_bit, int *fruit_vertex)
 {
@@ -46,13 +44,8 @@ static int InputIsValid(const MazeGraph *graph, int start, int goal,
            stamina >= 0 && stamina <= MAZE_STAMINA_MAX;
 }
 
-/* ---------------------------------------------------------------------------
- * Exact search
- *
- * A "state" is: which vertex the player is on, how much stamina is left, and
- * which fruit are already taken. Every move costs the same, so a breadth first
- * search over states finds the winning route with the fewest moves.
- * ------------------------------------------------------------------------- */
+/* A state is (vertex, stamina, fruit taken). BFS over states finds the winning route
+ * with the fewest moves. */
 
 int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
                       const int *fruits, int fruit_count, int stamina,
@@ -80,7 +73,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
 
     int masks = 1 << used;
     int states = graph->vertex_count * STAMINA_LEVELS * masks;
-    int *parent = (int *)malloc((size_t)states * sizeof(int));   /* where each state came from */
+    int *parent = (int *)malloc((size_t)states * sizeof(int));
     int *queue = (int *)malloc((size_t)states * sizeof(int));
     if (!parent || !queue)
     {
@@ -91,7 +84,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
     for (int i = 0; i < states; i++)
         parent[i] = UNSEEN;
 
-    int first = (start * STAMINA_LEVELS + stamina) * masks;     /* no fruit taken yet */
+    int first = (start * STAMINA_LEVELS + stamina) * masks;
     int head = 0;
     int tail = 0;
     int found = UNSEEN;
@@ -108,7 +101,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
         int at = rest / STAMINA_LEVELS;
 
         if (left == 0)
-            continue;                       /* no stamina, cannot move */
+            continue;
 
         for (const MazeEdgeNode *edge = graph->adjacency[at]; edge && found == UNSEEN; edge = edge->next)
         {
@@ -153,7 +146,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
         for (int i = 0; i < length; i++)
             plan->path[i] = backwards[length - 1 - i];
         for (int mask = found % masks; mask; mask &= mask - 1)
-            plan->fruits_collected++;       /* counts the 1 bits */
+            plan->fruits_collected++;
     }
 
     free(parent);
@@ -161,25 +154,20 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
     return 1;
 }
 
-/* ---------------------------------------------------------------------------
- * Quick check
- * ------------------------------------------------------------------------- */
-
 #define QUICK_MAX_POINTS (MAZE_PLANNER_MAX_FRUITS + 2)
 
 typedef struct {
     const MazeGraph *graph;
     int points;                             /* start, the fruit, then the goal */
-    int goal_point;                         /* index of the goal in the list */
+    int goal_point;
     int goal_vertex;
     int fruit_bit[MAZE_GRAPH_MAX_CELLS];
     int leg_length[QUICK_MAX_POINTS][QUICK_MAX_POINTS];   /* vertices on each leg, 0 if none */
     int *leg_path;                          /* leg_path[(a * points + b) * MAX_CELLS ...] */
 } QuickSearch;
 
-/* Walks the saved shortest route from point a to point b one step at a time,
- * with the real stamina rules. Returns 0 if the stamina ran out, 1 on arriving
- * at b, and 2 if the goal was reached on the way. */
+/* Walks the saved route from point a to b with the real stamina rules. Returns 0 if
+ * stamina ran out, 1 on arriving at b, 2 if the goal was reached on the way. */
 static int WalkLeg(const QuickSearch *q, int a, int b, int *stamina, int *mask)
 {
     const int *path = q->leg_path + (a * q->points + b) * MAZE_GRAPH_MAX_CELLS;
@@ -204,8 +192,8 @@ static int WalkLeg(const QuickSearch *q, int a, int b, int *stamina, int *mask)
     return 1;
 }
 
-/* Tries going straight to the goal, or to any fruit not visited yet and then
- * searching again from there. */
+/* Tries going straight to the goal, or to each unvisited fruit and searching again
+ * from there. */
 static int QuickSearchFrom(const QuickSearch *q, int at, int stamina, int mask, int visited)
 {
     int s = stamina;
@@ -281,10 +269,6 @@ int MazePlanner_QuickWinnable(const MazeGraph *graph, int start, int goal,
     free(q.leg_path);
     return result;
 }
-
-/* ---------------------------------------------------------------------------
- * Fruit placement
- * ------------------------------------------------------------------------- */
 
 int MazePlanner_PlaceFruits(const MazeGraph *graph, int start, int goal,
                             int count, uint32_t seed, int *fruits)

@@ -7,14 +7,13 @@
 
 struct SolveResult {
     bool found = false;
-    int pathLength = 0;         // moves from the start to the goal
+    int pathLength = 0;
     int visited = 0;            // squares the solver actually looked at
-    double microseconds = 0;    // how long one run took
-    std::vector<int> path;      // vertex ids from the start to the goal
+    double microseconds = 0;
+    std::vector<int> path;
 };
 
-// Every solver finds a route through a MazeGraph. They share this parent class
-// and each child only says how it searches.
+// Base class for the solvers. Each child only says how it searches.
 class Solver {
 public:
     virtual ~Solver() = default;
@@ -31,7 +30,7 @@ protected:
     static void BuildPath(const std::vector<int>& cameFrom, int start, int goal, SolveResult& result);
 };
 
-// Breadth first search with a queue. Always finds a shortest route.
+// BFS with a queue. Always finds a shortest route.
 class BfsSolver : public Solver {
 public:
     const char* Name() const override { return "BFS"; }
@@ -39,7 +38,7 @@ protected:
     void Run(const MazeGraph& graph, int start, int goal, SolveResult& result) const override;
 };
 
-// Depth first search with a stack. Finds a route, not always the shortest.
+// DFS with a stack. Finds a route, not always the shortest.
 class DfsSolver : public Solver {
 public:
     const char* Name() const override { return "DFS"; }
@@ -47,8 +46,7 @@ protected:
     void Run(const MazeGraph& graph, int start, int goal, SolveResult& result) const override;
 };
 
-// Dijkstra with a heap. Every move costs 1 here, so it finds the same routes as
-// BFS, but it is the version that also works when moves cost different amounts.
+// Dijkstra with a heap. Same routes as BFS here, since every move costs 1.
 class DijkstraSolver : public Solver {
 public:
     const char* Name() const override { return "Dijkstra"; }
@@ -56,8 +54,7 @@ protected:
     void Run(const MazeGraph& graph, int start, int goal, SolveResult& result) const override;
 };
 
-// A*: Dijkstra plus a guess of the distance left (straight line along the
-// grid), so it usually looks at far fewer squares.
+// A*: Dijkstra plus a guess of the distance left, so it usually looks at fewer squares.
 class AStarSolver : public Solver {
 public:
     const char* Name() const override { return "A*"; }

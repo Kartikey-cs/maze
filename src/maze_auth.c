@@ -5,10 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-/* ---------------------------------------------------------------------------
- * SHA-256
- * ------------------------------------------------------------------------- */
-
 static const uint32_t K[64] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -57,7 +53,7 @@ static void Sha256(const unsigned char *data, size_t length, unsigned char out[3
 {
     uint32_t h[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
-    unsigned char block[128];   /* the padded tail: one or two blocks */
+    unsigned char block[128];
     size_t whole = length / 64;
     size_t rest = length - whole * 64;
     size_t padded = (rest < 56) ? 64 : 128;
@@ -99,14 +95,8 @@ void MazeAuth_Sha256Hex(const unsigned char *data, size_t length, char hex[65])
     ToHex(digest, 32, hex);
 }
 
-/* ---------------------------------------------------------------------------
- * Password storage
- *
- * A stored password looks like  <32 hex salt>:<64 hex hash>.
- * The salt is random and different for every account, so two people with the
- * same password get different stored values. The hash is SHA-256 repeated
- * many times, which makes guessing passwords slower.
- * ------------------------------------------------------------------------- */
+/* Stored as <32 hex salt>:<64 hex hash>. The hash is SHA-256 repeated many times
+ * to slow down guessing. */
 
 #define SALT_BYTES 16
 #define HASH_ROUNDS 10000
@@ -135,7 +125,7 @@ static void MakeStoredPassword(const char *password, char stored[STORED_LEN])
     unsigned char salt[SALT_BYTES];
     char hash[65];
 
-    sqlite3_randomness(SALT_BYTES, salt);   /* SQLite's own random source */
+    sqlite3_randomness(SALT_BYTES, salt);
     HashPassword(salt, password, hash);
     ToHex(salt, SALT_BYTES, stored);
     stored[2 * SALT_BYTES] = ':';
@@ -160,8 +150,8 @@ static int SameText(const char *a, const char *b)
     return difference == 0;
 }
 
-/* The very first version of this project stored a plain 64 bit FNV hash with
- * no salt. Old accounts still log in, and are upgraded when they do. */
+/* Old accounts stored an unsalted 64 bit FNV hash. They still log in and are
+ * upgraded when they do. */
 static void LegacyHash(const char *password, char hex[32])
 {
     uint64_t hash = 14695981039346656037ULL;
@@ -173,8 +163,7 @@ static void LegacyHash(const char *password, char hex[32])
     sprintf(hex, "%016llx", (unsigned long long)hash);
 }
 
-/* Returns 1 if the password matches what is stored. *legacy is set to 1 when
- * the stored value is the old unsalted format. */
+/* Returns 1 if the password matches. *legacy is set to 1 for the old unsalted format. */
 static int CheckPassword(const char *password, const char *stored, int *legacy)
 {
     *legacy = (strchr(stored, ':') == NULL);
@@ -201,10 +190,6 @@ static int CheckPassword(const char *password, const char *stored, int *legacy)
     HashPassword(salt, password, hash);
     return SameText(hash, stored + 2 * SALT_BYTES + 1);
 }
-
-/* ---------------------------------------------------------------------------
- * Signup and login
- * ------------------------------------------------------------------------- */
 
 static void SetMessage(char *message, size_t size, const char *text)
 {
@@ -309,7 +294,7 @@ int MazeAuth_Login(const char *username, const char *password,
         success = 1;
         SetMessage(message, size, "Login successful.");
 
-        if (legacy)   /* move an old account to the salted format */
+        if (legacy)
         {
             char upgraded[STORED_LEN];
             MakeStoredPassword(password, upgraded);

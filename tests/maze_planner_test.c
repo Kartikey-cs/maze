@@ -17,8 +17,7 @@ static int HasEdge(const MazeGraph *graph, int from, int to)
     return 0;
 }
 
-/* Plays the plan's path with the real rules. The route must start and end in
- * the right places, only use real edges, and never move with 0 stamina. */
+/* Plays the plan's path with the real rules: real edges only, never a move with 0 stamina. */
 static void CheckPlanIsPlayable(const MazeGraph *graph, const MazePlan *plan, int start, int goal,
                                 const int *fruits, int fruit_count, int stamina)
 {
@@ -73,9 +72,9 @@ static void TestSnake(void)
     BuildSnake(&graph);
 
     int start = MazeGraph_VertexAt(&graph, 0, 0);
-    int at100 = MazeGraph_VertexAt(&graph, 6, 26);      /* exactly 100 moves away */
-    int at101 = MazeGraph_VertexAt(&graph, 6, 25);      /* one more */
-    int end = MazeGraph_VertexAt(&graph, 6, 0);         /* 126 moves away */
+    int at100 = MazeGraph_VertexAt(&graph, 6, 26);
+    int at101 = MazeGraph_VertexAt(&graph, 6, 25);
+    int end = MazeGraph_VertexAt(&graph, 6, 0);
 
     /* 100 moves is exactly enough, 101 is not. */
     assert(MazePlanner_Solve(&graph, start, at100, NULL, 0, 100, &plan));
@@ -155,8 +154,8 @@ static void TestPlaceFruits(void)
     assert(MazePlanner_PlaceFruits(&graph, start, goal, 5, 42, a) == 5);
     assert(MazePlanner_PlaceFruits(&graph, start, goal, 5, 42, b) == 5);
     assert(MazePlanner_PlaceFruits(&graph, start, goal, 5, 43, c) == 5);
-    assert(memcmp(a, b, sizeof a) == 0);                    /* same seed, same fruit */
-    assert(memcmp(a, c, sizeof a) != 0);                    /* another seed, other fruit */
+    assert(memcmp(a, b, sizeof a) == 0);
+    assert(memcmp(a, c, sizeof a) != 0);
 
     for (int i = 0; i < 5; i++)
     {
@@ -170,8 +169,8 @@ static void TestPlaceFruits(void)
     MazeGraph_Free(&graph);
 }
 
-/* Real generated mazes: the exact planner must give playable routes, never
- * claim less than the quick check, and never beat plain BFS. */
+/* Generated mazes: the exact planner must give playable routes, never claim less than
+ * the quick check, and never beat plain BFS. */
 static void TestGeneratedMazes(void)
 {
     const char *names[3] = {"Easy", "Medium", "Hard"};

@@ -6,8 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* The database file is created in the current folder, so the Makefile runs
- * this test from build/auth_test/ and never touches a real maze_game.db. */
+/* Run from build/auth_test/ so it never touches a real maze_game.db. */
 
 static void StoredPassword(const char *username, char *out, size_t size)
 {
@@ -95,7 +94,7 @@ int main(void)
     assert(!MazeAuth_Login("frank", "nope", message, sizeof message));
     assert(MazeAuth_Login("frank", "oldpw", message, sizeof message));
     StoredPassword("frank", first, sizeof first);
-    assert(strchr(first, ':') != NULL);                      /* now salted */
+    assert(strchr(first, ':') != NULL);
     assert(MazeAuth_Login("frank", "oldpw", message, sizeof message));
 
     puts("Auth tests PASS");

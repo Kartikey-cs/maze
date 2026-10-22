@@ -13,11 +13,9 @@ int main(void)
     int offsetX = (SCREEN_WIDTH - COLS * TILE_SIZE) / 2;
     int offsetY = (SCREEN_HEIGHT - ROWS * TILE_SIZE) / 2;
 
-    // Load textures
     Texture2D background = LoadTexture("assets/image.png");
     Texture2D shrub = LoadTexture("assets/bush-Photoroom.png");
 
-    // Check if textures loaded
     if (background.id == 0 || shrub.id == 0)
     {
         CloseWindow();
@@ -55,7 +53,6 @@ int main(void)
 
         ClearBackground(BLACK);
 
-        // Draw background
         DrawTexturePro(
             background,
             (Rectangle){0, 0, background.width, background.height},
@@ -65,7 +62,6 @@ int main(void)
             WHITE
         );
 
-        // Draw maze
         for (int y = 0; y < ROWS; y++)
         {
             for (int x = 0; x < COLS; x++)

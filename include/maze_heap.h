@@ -24,8 +24,7 @@ typedef struct {
 
 void MazeHeap_Init(MazeHeap *heap);
 
-/* Both return 1 on success. Push fails (0) when the heap is full, Pop when it
- * is empty. */
+/* Both return 1 on success. Push fails when the heap is full, Pop when it is empty. */
 int MazeHeap_Push(MazeHeap *heap, int priority, int vertex);
 int MazeHeap_Pop(MazeHeap *heap, MazeHeapItem *item);
 

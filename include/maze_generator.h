@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-/* ── Difficulty levels ────────────────────────────────────────────────── */
-
 typedef enum {
   MAZE_DIFFICULTY_EASY,
   MAZE_DIFFICULTY_MEDIUM,
@@ -19,8 +17,6 @@ typedef struct {
   int loop_percent;
   int fruit_count;
 } MazeDifficultyParams;
-
-/* ── Core generation API ──────────────────────────────────────────────── */
 
 void MazeGen_GetParams(MazeDifficulty diff, MazeDifficultyParams *out);
 

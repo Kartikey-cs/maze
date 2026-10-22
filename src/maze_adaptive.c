@@ -19,8 +19,7 @@ double MazeAdaptive_Target(double rating)
     return target;
 }
 
-/* Builds one candidate maze and checks it. Returns 1 and fills in `choice` if
- * the maze can be won, otherwise 0. */
+/* Builds one candidate maze. Returns 1 and fills in choice if it can be won. */
 static int MakeCandidate(MazeDifficulty difficulty, unsigned int seed, MazeChoice *choice)
 {
     MazeDifficultyParams params;
@@ -72,8 +71,7 @@ int MazeAdaptive_Choose(double rating, unsigned int base_seed, MazeChoice *choic
     if (!choice)
         return 0;
 
-    /* 1 and 2: make the candidates and keep the winnable ones. The presets take
-     * turns, so every difficulty is represented. */
+    /* 1-2: make the candidates and keep the winnable ones */
     for (int i = 0; i < MAZE_ADAPTIVE_CANDIDATES; i++)
     {
         unsigned int seed = base_seed + (unsigned int)i * 7919u;
@@ -86,8 +84,7 @@ int MazeAdaptive_Choose(double rating, unsigned int base_seed, MazeChoice *choic
     if (count == 0)
         return 0;
 
-    /* 3: easiest first (a higher predicted success rate means an easier maze).
-     * Insertion sort, because the list is tiny. */
+    /* 3: sort easiest first (a higher predicted success rate is easier) */
     for (int i = 1; i < count; i++)
     {
         MazeChoice item = candidates[i];
