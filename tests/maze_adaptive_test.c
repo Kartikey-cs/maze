@@ -18,8 +18,7 @@ static void TestTarget(void)
         assert(MazeAdaptive_Target(r) <= MazeAdaptive_Target(r + 25));
 }
 
-/* Rebuilds the chosen maze from its difficulty and seed, the way the game does,
- * and checks that it really can be won. */
+/* Rebuilds the chosen maze the way the game does and checks it can be won. */
 static void CheckChoiceIsWinnable(const MazeChoice *choice)
 {
     MazeDifficultyParams params;

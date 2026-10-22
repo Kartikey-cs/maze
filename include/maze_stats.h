@@ -17,19 +17,14 @@ typedef struct {
     int wins;
 } MazeLeaderboardEntry;
 
-/* ---- Elo-style rating (plain maths, no database) ------------------------ */
-
 /* Chance (0 to 1) that a player beats a maze of the given rating. */
 double MazeRating_Expected(double player, double maze);
 
-/* New player rating after one game. A win moves the rating up, a loss moves
- * it down, and beating a maze you were expected to beat moves it very little. */
+/* New rating after one game. Beating a maze you were expected to beat moves it very little. */
 double MazeRating_Update(double player, double maze, int won);
 
 /* How hard each preset counts as: 0 easy, 1 medium, 2 hard. */
 double MazeRating_ForDifficulty(int difficulty);
-
-/* ---- Database ------------------------------------------------------------ */
 
 /* Each function returns 1 on success and 0 on failure. */
 

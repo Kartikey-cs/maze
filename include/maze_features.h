@@ -12,9 +12,8 @@ typedef struct MazeFeatures {
     double detour_ratio;
 } MazeFeatures;
 
-/* Requires a connected graph built by MazeGraph_BuildFromGrid. Returns 0 on
- * invalid endpoints, empty or disconnected graphs. Path length counts moves,
- * distance is Euclidean in grid cells; a coincident endpoint has ratio 1. */
+/* Needs a connected graph from MazeGraph_BuildFromGrid. Returns 0 on invalid endpoints or an
+ * empty or disconnected graph. Distance is Euclidean in grid cells. */
 int MazeFeatures_Extract(const MazeGraph *graph, int start_row, int start_col,
                          int goal_row, int goal_col, MazeFeatures *out);
 /* Stable order shared with Python and exported model headers. */

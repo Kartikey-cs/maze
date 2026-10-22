@@ -122,7 +122,7 @@ void DijkstraSolver::Run(const MazeGraph& graph, int start, int goal, SolveResul
 
         for (const MazeEdgeNode* edge = graph.adjacency[v]; edge; edge = edge->next)
         {
-            int newDistance = distance[v] + 1;  // every move costs 1
+            int newDistance = distance[v] + 1;
             if (newDistance < distance[edge->to])
             {
                 distance[edge->to] = newDistance;
@@ -145,8 +145,7 @@ void AStarSolver::Run(const MazeGraph& graph, int start, int goal, SolveResult& 
     MazeHeap heap;
     MazeHeapItem item;
 
-    // Guess of the moves left: rows plus columns to the goal. It is never too
-    // big, so A* still finds a shortest route.
+    // Moves left, estimated as rows plus columns to the goal. Never too big, so A* stays optimal.
     auto guess = [&](int v) {
         return std::abs(graph.vertex_row[v] - graph.vertex_row[goal]) +
                std::abs(graph.vertex_col[v] - graph.vertex_col[goal]);

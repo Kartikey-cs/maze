@@ -86,9 +86,8 @@ public:
     Maze(const Maze&) = delete;
     Maze& operator=(const Maze&) = delete;
 
-    // Makes the maze for this seed and places its fruit. Returns false if the
-    // maze could not be built or solved. Use IsWinnable() to see if the fruit
-    // gives the player enough stamina to reach the exit.
+    // Makes the maze for this seed and places its fruit. Returns false if it could not be
+    // built. IsWinnable() says whether the stamina and fruit can reach the exit.
     bool Generate(MazeDifficulty difficulty, unsigned int seed)
     {
         MazeDifficultyParams params;
@@ -371,7 +370,6 @@ private:
             if (won_ || lost_) DrawText(ratingText_.c_str(), 520, 420, 22, YELLOW);
         }
 
-
         EndDrawing();
     }
 
@@ -432,7 +430,7 @@ private:
         {
             if (MazeAuth_Signup(username_.c_str(), password_.c_str(), message, sizeof message))
             {
-                signupMode_ = false;   // account created, now log in with it
+                signupMode_ = false;
                 password_.clear();
             }
         }
@@ -493,7 +491,7 @@ private:
         showSolvers_ = true;
     }
 
-    // The table on the left. The maze starts further right than this on every difficulty.
+    // Solver table on the left of the screen.
     void DrawSolverPanel()
     {
         const int x = 15;
@@ -519,8 +517,7 @@ private:
         DrawText("Press C to hide", x + 10, y + 168, 14, LIGHTGRAY);
     }
 
-    // Asks the planner for the best route from where the player stands now,
-    // with the stamina they have left and the fruit still on the maze.
+    // Best route from where the player stands, with their stamina and the fruit left.
     void ShowHint()
     {
         std::vector<int> fruits;
@@ -793,8 +790,7 @@ private:
         }
     }
 
-    // Tries new random mazes until one can really be won with the stamina and
-    // fruit it has. Hard mazes often cannot, so this may take a few tries.
+    // Retries random mazes until one is winnable (Hard mazes often are not).
     bool MakeWinnableMaze(MazeDifficulty difficulty)
     {
         for (int attempt = 0; attempt < 200; attempt++)
@@ -835,7 +831,6 @@ private:
     // Lays out the current maze on screen and starts a fresh game on it.
     void BeginPlaying()
     {
-        // Fit the maze on screen and centre it.
         tileSize_ = (screenHeight - 40) / maze_.Rows();
         offsetX_ = (screenWidth - maze_.Cols() * tileSize_) / 2;
         offsetY_ = (screenHeight - maze_.Rows() * tileSize_) / 2;

@@ -7,10 +7,6 @@
 
 #define RATING_K 32.0   /* how far one game can move a rating */
 
-/* ---------------------------------------------------------------------------
- * Rating maths
- * ------------------------------------------------------------------------- */
-
 double MazeRating_Expected(double player, double maze)
 {
     return 1.0 / (1.0 + pow(10.0, (maze - player) / 400.0));
@@ -29,10 +25,6 @@ double MazeRating_ForDifficulty(int difficulty)
     if (difficulty == 1) return 1000;
     return 1200;
 }
-
-/* ---------------------------------------------------------------------------
- * Database
- * ------------------------------------------------------------------------- */
 
 int MazeStats_GetRating(const char *username, double *rating)
 {
@@ -165,8 +157,7 @@ int MazeStats_Leaderboard(MazeLeaderboardEntry *entries, int max)
     return count;
 }
 
-/* Writes text as one CSV field. It is quoted, and a quote inside it is doubled,
- * so names containing commas or quotes do not break the columns. */
+/* Writes text as one CSV field: quoted, with any inner quote doubled. */
 static void WriteCsvText(FILE *file, const char *text)
 {
     fputc('"', file);

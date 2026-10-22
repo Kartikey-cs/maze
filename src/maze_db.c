@@ -17,12 +17,11 @@ sqlite3 *MazeDb_Open(void)
                  "username TEXT UNIQUE, password TEXT);",
                  NULL, NULL, NULL);
 
-    /* Databases made before ratings existed have no rating column. When the
-     * column is already there this fails, and we simply ignore the error. */
+    /* Older databases have no rating column; the error when it already exists is ignored. */
     sqlite3_exec(db, "ALTER TABLE users ADD COLUMN rating REAL DEFAULT 1000;",
                  NULL, NULL, NULL);
 
-    /* One row per finished game. difficulty is 0 easy, 1 medium, 2 hard. */
+    /* difficulty: 0 easy, 1 medium, 2 hard */
     sqlite3_exec(db,
                  "CREATE TABLE IF NOT EXISTS plays("
                  "id INTEGER PRIMARY KEY AUTOINCREMENT, "
