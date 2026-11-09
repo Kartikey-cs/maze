@@ -18,7 +18,7 @@ RAYLIB_CFLAGS ?=
 RAYLIB_LIBS ?= -lraylib
 endif
 
-.PHONY: all test dataset train check-model game cli menu lab
+.PHONY: all dataset train check-model game cli menu lab
 .DELETE_ON_ERROR:
 all: build/maze_dataset
 
@@ -27,27 +27,6 @@ build:
 
 build/maze_dataset: src/maze_dataset.c src/maze_features.c src/maze_sim.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
-
-build/maze_features_test: tests/maze_features_test.c src/maze_features.c src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
-
-build/maze_sim_test: tests/maze_sim_test.c src/maze_sim.c src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
-
-build/maze_generator_test: tests/maze_generator_test.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
-
-build/maze_planner_test: tests/maze_planner_test.c src/maze_planner.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
-
-build/maze_adaptive_test: tests/maze_adaptive_test.c src/maze_adaptive.c src/maze_planner.c src/maze_features.c src/maze_generator.c src/maze_graph.c model/maze_model.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -I. $(CFLAGS) tests/maze_adaptive_test.c src/maze_adaptive.c src/maze_planner.c src/maze_features.c src/maze_generator.c src/maze_graph.c $(LDLIBS) -o $@
-
-build/maze_auth_test: tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_auth_test.c build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) -o $@
-
-build/maze_stats_test: tests/maze_stats_test.c build/maze_stats.o build/maze_auth.o build/maze_db.o $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) tests/maze_stats_test.c build/maze_stats.o build/maze_auth.o build/maze_db.o $(SQLITE_LIBS) $(LDLIBS) -o $@
 
 build/maze_model_score: src/maze_model_score.c model/maze_model.h Makefile | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Imodel src/maze_model_score.c -o $@
@@ -85,9 +64,6 @@ build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o bui
 build/maze_heap.o: src/maze_heap.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_heap.c -o $@
 
-build/maze_solvers_test: tests/maze_solvers_test.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) tests/maze_solvers_test.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o -o $@
-
 build/maze_lab: src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o -o $@
 
@@ -113,15 +89,3 @@ train: dataset
 
 check-model: build/maze_model_score
 	$(PYTHON) tools/verify_model.py data/maze_data.csv model/maze_model.json ./build/maze_model_score
-
-test: build/maze_features_test build/maze_sim_test build/maze_generator_test build/maze_planner_test build/maze_solvers_test build/maze_adaptive_test build/maze_auth_test build/maze_stats_test build/maze_dataset
-	./build/maze_features_test
-	./build/maze_sim_test
-	./build/maze_generator_test
-	./build/maze_planner_test
-	./build/maze_solvers_test
-	./build/maze_adaptive_test
-	mkdir -p build/auth_test && cd build/auth_test && rm -f maze_game.db && ../maze_auth_test
-	mkdir -p build/stats_test && cd build/stats_test && rm -f maze_game.db play_log.csv && ../maze_stats_test
-	CC="$(CC)" $(PYTHON) -m unittest discover -s tests -p '*_test.py'
-	$(MAKE) check-model

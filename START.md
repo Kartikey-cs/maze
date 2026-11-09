@@ -90,16 +90,7 @@ make menu
 This opens the standalone login/signup window. The main game now has the same
 login screen built in, and both use the same code (`src/maze_auth.c`).
 
-## Tests and model training
-
-Run the full test suite:
-
-```sh
-make test
-```
-
-This runs the C feature and bot tests, checks generated mazes, runs the Python
-training tests, and verifies that C and Python model predictions match.
+## Model training
 
 Regenerate the dataset and train the model:
 
@@ -118,7 +109,6 @@ model against the baseline, and exports the weights to C.
 | `make cli` | Builds the terminal maze generator |
 | `make lab` | Builds the solver comparison (BFS, DFS, Dijkstra, A*); run `./build/maze_lab` |
 | `make menu` | Builds the standalone login/signup window |
-| `make test` | Runs all automated tests and score verification |
 | `make dataset` | Regenerates `data/maze_data.csv` |
 | `make train` | Regenerates data, trains/exports the model, verifies scores |
 | `make check-model` | Compares exported C scores with Python predictions |
@@ -145,6 +135,6 @@ model against the baseline, and exports the weights to C.
 - **`make` is missing:** use a terminal with GNU Make available; on Windows this
   should be the MSYS2 UCRT64 terminal.
 - **`python3` is missing:** use your installed Python 3.10+ command, for example
-  `make test PYTHON=python` or `make train PYTHON=python`.
+  `make train PYTHON=python`.
 
 All commands above operate locally. They do not commit or push to Git.

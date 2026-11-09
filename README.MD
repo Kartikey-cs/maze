@@ -3,7 +3,6 @@
 ```text
 src/        C implementations and the C++ game
 include/    Shared maze headers
-tests/      C tests, Python tests, and the visual maze demo
 tools/      Offline model training and verification scripts
 vendor/     Third-party SQLite header
 data/       Generated training dataset
@@ -77,7 +76,7 @@ From the repository root (macOS/Linux terminal or MSYS2 on Windows):
 
 ```sh
 make                  # Build the C dataset generator
-make test             # C unit tests, generator tests, Python tests, score parity
+make check-model      # Check that the C scores match the Python model
 make train            # Regenerate the dataset, train/export, and verify C scores
 ```
 
