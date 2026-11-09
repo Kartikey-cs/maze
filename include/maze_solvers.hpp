@@ -52,14 +52,17 @@ public:
     const char* Name() const override { return "Dijkstra"; }
 protected:
     void Run(const MazeGraph& graph, int start, int goal, SolveResult& result) const override;
+
+    // Guess of the moves left to the goal. Dijkstra has none.
+    virtual int Guess(const MazeGraph&, int, int) const { return 0; }
 };
 
-// A*: Dijkstra plus a guess of the distance left, so it usually looks at fewer squares.
-class AStarSolver : public Solver {
+// A* is Dijkstra plus a guess of the distance left, so it usually looks at fewer squares.
+class AStarSolver : public DijkstraSolver {
 public:
     const char* Name() const override { return "A*"; }
 protected:
-    void Run(const MazeGraph& graph, int start, int goal, SolveResult& result) const override;
+    int Guess(const MazeGraph& graph, int v, int goal) const override;
 };
 
 #endif
