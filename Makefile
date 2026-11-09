@@ -18,7 +18,7 @@ RAYLIB_CFLAGS ?=
 RAYLIB_LIBS ?= -lraylib
 endif
 
-.PHONY: all dataset train check-model game cli menu lab
+.PHONY: all dataset train check-model game cli menu
 .DELETE_ON_ERROR:
 all: build/maze_dataset
 
@@ -37,14 +37,11 @@ build/maze_graph.o: src/maze_graph.c $(HEADERS) | build
 build/maze_generator.o: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_generator.c -o $@
 
-build/maze_planner.o: src/maze_planner.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_planner.c -o $@
+build/maze_planner.o: src/maze_planner.c model/maze_model.h $(HEADERS) | build
+	$(CC) $(CPPFLAGS) -Iinclude -I. $(CFLAGS) -c src/maze_planner.c -o $@
 
 build/maze_features.o: src/maze_features.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_features.c -o $@
-
-build/maze_adaptive.o: src/maze_adaptive.c model/maze_model.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -I. $(CFLAGS) -c src/maze_adaptive.c -o $@
 
 build/maze_solvers.o: src/maze_solvers.cpp include/maze_solvers.hpp $(HEADERS) | build
 	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) -c src/maze_solvers.cpp -o $@
@@ -58,14 +55,8 @@ build/maze_db.o: src/maze_db.c vendor/sqlite3.h $(HEADERS) | build
 build/maze_stats.o: src/maze_stats.c vendor/sqlite3.h $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_stats.c -o $@
 
-build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o build/maze_solvers.o build/maze_heap.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_adaptive.o build/maze_solvers.o build/maze_heap.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
-
-build/maze_heap.o: src/maze_heap.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_heap.c -o $@
-
-build/maze_lab: src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) src/maze_lab.cpp src/maze_solvers.cpp build/maze_heap.o build/maze_graph.o build/maze_generator.o -o $@
+build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_solvers.o $(HEADERS) | build
+	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_solvers.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
 
 build/maze_cli: src/maze_generator.c $(HEADERS) | build
 	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
@@ -76,7 +67,6 @@ build/menu: src/menu.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
 game: build/maze_game
 cli: build/maze_cli
 menu: build/menu
-lab: build/maze_lab
 
 dataset: build/maze_dataset
 	mkdir -p data

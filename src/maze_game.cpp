@@ -1,6 +1,5 @@
 #include "raylib.h"
 
-#include "maze_adaptive.h"
 #include "maze_auth.h"
 #include "maze_generator.h"
 #include "maze_graph.h"
@@ -97,8 +96,6 @@ public:
         cols_ = params.cols;
         fruitCount_ = params.fruit_count;
         grid_.assign(rows_ * cols_, 1);
-        pathLength_ = 0;
-        reachableCount_ = 0;
         winnable_ = false;
         fruitVertices_.clear();
 
@@ -107,34 +104,21 @@ public:
         if (!MazeGraph_BuildFromGrid(&graph_, grid_.data(), rows_, cols_))
             return false;
 
-        std::vector<int> path(MAZE_GRAPH_MAX_CELLS);
-        pathLength_ = MazeGraph_FindShortestPath(&graph_, StartRow(), StartCol(),
-                                                 GoalRow(), GoalCol(),
-                                                 path.data(), static_cast<int>(path.size()));
-        reachableCount_ = MazeGraph_DfsReachableCount(&graph_, StartRow(), StartCol());
-        if (!HasSolution())
-            return false;
-
         // The same seed always gives the same fruit, so the planner and the game agree.
         int fruits[MAZE_PLANNER_MAX_FRUITS];
+        int path[MAZE_GRAPH_MAX_CELLS];
         int count = MazePlanner_PlaceFruits(&graph_, StartVertex(), GoalVertex(),
-                                            std::min(fruitCount_, MAZE_PLANNER_MAX_FRUITS), seed, fruits);
+                                            fruitCount_, seed, fruits);
         fruitVertices_.assign(fruits, fruits + count);
 
-        MazePlan plan;
         winnable_ = MazePlanner_Solve(&graph_, StartVertex(), GoalVertex(), fruits, count,
-                                      maxStamina, &plan) && plan.winnable;
+                                      maxStamina, path) > 0;
         return true;
     }
 
     bool IsWall(int row, int col) const
     {
         return grid_[row * cols_ + col] == 1;
-    }
-
-    bool HasSolution() const
-    {
-        return pathLength_ > 0 && reachableCount_ > 0;
     }
 
     bool IsWinnable() const { return winnable_; }
@@ -161,8 +145,6 @@ private:
     int rows_ = 0;
     int cols_ = 0;
     int fruitCount_ = 0;
-    int pathLength_ = 0;
-    int reachableCount_ = 0;
     std::vector<int> fruitVertices_;
     bool winnable_ = false;
 };
@@ -527,15 +509,15 @@ private:
                 fruits.push_back(maze_.VertexAt(fruit.Row(), fruit.Col()));
         }
 
-        MazePlan plan;
-        bool ok = MazePlanner_Solve(&maze_.Graph(), maze_.VertexAt(player_.row, player_.col),
-                                    maze_.GoalVertex(), fruits.data(), static_cast<int>(fruits.size()),
-                                    player_.stamina, &plan);
+        int path[MAZE_GRAPH_MAX_CELLS];
+        int length = MazePlanner_Solve(&maze_.Graph(), maze_.VertexAt(player_.row, player_.col),
+                                       maze_.GoalVertex(), fruits.data(), static_cast<int>(fruits.size()),
+                                       player_.stamina, path);
 
         hintPath_.clear();
-        if (ok && plan.winnable)
+        if (length > 0)
         {
-            hintPath_.assign(plan.path + 1, plan.path + plan.path_length);
+            hintPath_.assign(path + 1, path + length);
             hintMessage_ = "Follow the dots.";
         }
         else

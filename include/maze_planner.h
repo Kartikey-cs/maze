@@ -1,6 +1,7 @@
 #ifndef MAZE_PLANNER_H
 #define MAZE_PLANNER_H
 
+#include "maze_generator.h"
 #include "maze_graph.h"
 
 #include <stdint.h>
@@ -11,31 +12,28 @@ extern "C" {
 
 #define MAZE_PLANNER_MAX_FRUITS 6
 
-typedef struct {
-    int winnable;
-    int moves;                          /* moves on the shortest winning route */
-    int fruits_collected;
-    int path_length;
-    int path[MAZE_GRAPH_MAX_CELLS];     /* vertex ids from start to goal */
-} MazePlan;
-
-/* Exact search over (position, stamina, fruit taken) with the rules from maze_rules.h.
- * fruit is a list of vertex ids, each collected once; stamina is the amount right now.
- * Returns 1 if the search ran (check plan->winnable), 0 for bad input. */
-int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
-                      const int *fruits, int fruit_count, int stamina,
-                      MazePlan *plan);
-
-/* Quick check: walks shortest routes between the start, some fruit and the goal in every
- * order. A 1 is always right, a 0 can be wrong (no detours). Cross-checks
- * MazePlanner_Solve in the tests. */
-int MazePlanner_QuickWinnable(const MazeGraph *graph, int start, int goal,
-                              const int *fruits, int fruit_count, int stamina);
-
-/* Chooses `count` different vertices for fruit, never the start or the goal.
+/* Chooses count different vertices for fruit, never the start or the goal.
  * The same seed always gives the same fruit. Returns how many were placed. */
 int MazePlanner_PlaceFruits(const MazeGraph *graph, int start, int goal,
                             int count, uint32_t seed, int *fruits);
+
+/* Finds the shortest route that wins with the game's stamina rules. fruits holds
+ * vertex ids (each collected once) and stamina is what the player has right now.
+ * Writes the route to path (room for MAZE_GRAPH_MAX_CELLS) and returns how many
+ * vertices it has, or 0 if the maze cannot be won. */
+int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
+                      const int *fruits, int fruit_count, int stamina, int *path);
+
+typedef struct {
+    MazeDifficulty difficulty;
+    unsigned int seed;              /* with the difficulty, this gives the exact maze */
+    double predicted_success;       /* the model's guess: higher means easier */
+} MazeChoice;
+
+/* Picks the next maze for a player with this rating: makes candidates from the three
+ * presets, drops the ones that cannot be won, sorts the rest easiest first and takes
+ * the one at the player's place on the list. Returns 1 on success, 0 if none can be won. */
+int MazeAdaptive_Choose(double rating, unsigned int base_seed, MazeChoice *choice);
 
 #ifdef __cplusplus
 }
