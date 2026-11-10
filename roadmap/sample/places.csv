@@ -1,0 +1,45 @@
+name,lat,lon,node,kind
+Sample Pump 1,30.3176959,78.0411933,23,pump
+Sample Pump 2,30.3240632,78.0383824,117,pump
+Sample Pump 3,30.3166698,78.0484218,13,pump
+Sample Pump 4,30.3228731,78.0387332,101,pump
+Sample Pump 5,30.3219569,78.0497141,94,pump
+Sample Pump 6,30.3215615,78.0433767,89,pump
+Sample Pump 7,30.3172350,78.0332137,17,pump
+Sample Pump 8,30.3195066,78.0347396,50,pump
+Sample Hospital 1,30.3166618,78.0461119,11,hospital
+Sample Hospital 2,30.3167000,78.0484191,13,hospital
+Sample Hospital 3,30.3178293,78.0396344,22,hospital
+Sample City,30.3218978,78.0420477,88,city
+North Park,30.3166420,78.0483339,13,area
+Old Town,30.3210268,78.0509457,79,area
+Riverside,30.3260388,78.0336256,145,area
+Hillview,30.3219763,78.0458108,91,area
+Market Quarter,30.3231685,78.0446361,106,area
+Station Area,30.3231685,78.0446361,106,area
+Green Colony,30.3164702,78.0369543,4,area
+East End,30.3221091,78.0486610,93,area
+Clock Tower,30.3274916,78.0373450,164,landmark
+Central Library,30.3196135,78.0345290,50,landmark
+City Museum,30.3230400,78.0369789,100,landmark
+Grand Hotel,30.3230977,78.0407739,103,landmark
+Sports Stadium,30.3196274,78.0372413,52,landmark
+Town Hall,30.3163080,78.0335273,1,landmark
+Fort Gate,30.3230385,78.0511810,111,landmark
+Old Bridge,30.3184840,78.0420172,40,landmark
+Clock Tower 2,30.3228112,78.0469908,108,landmark
+Central Library 2,30.3176108,78.0485713,29,landmark
+Column 10 Street,30.3216783,78.0433635,89,street
+Column 12 Street,30.3219763,78.0458108,91,street
+Column 14 Street,30.3221091,78.0486610,93,street
+Column 16 Street,30.3217672,78.0507856,95,street
+Column 2 Street,30.3218300,78.0333244,81,street
+Column 4 Street,30.3220152,78.0359632,83,street
+Column 6 Street,30.3221077,78.0386058,85,street
+Column 8 Street,30.3219976,78.0411068,87,street
+Row 1 Road,30.3163757,78.0407454,7,street
+Row 11 Road,30.3274645,78.0421495,168,street
+Row 3 Road,30.3184840,78.0420172,40,street
+Row 5 Road,30.3210334,78.0411227,71,street
+Row 7 Road,30.3231030,78.0421028,104,street
+Row 9 Road,30.3251273,78.0410828,135,street
