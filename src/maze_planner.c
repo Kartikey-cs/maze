@@ -3,6 +3,7 @@
 #include "maze_features.h"
 #include "maze_rng.h"
 #include "maze_rules.h"
+#include "maze_structs.h"
 #include "model/maze_model.h"
 
 #include <stdlib.h>
@@ -63,27 +64,24 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
     int masks = 1 << fruit_count;
     int states = graph->vertex_count * STAMINA_LEVELS * masks;
     int *parent = (int *)malloc((size_t)states * sizeof(int));     /* -1 = not reached yet */
-    int *queue = (int *)malloc((size_t)states * sizeof(int));
-    if (!parent || !queue)
+    MazeQueue queue;
+    if (!parent || !MazeQueue_Init(&queue, states))                /* each state is queued once */
     {
         free(parent);
-        free(queue);
         return 0;
     }
     for (int i = 0; i < states; i++)
         parent[i] = -1;
 
     int first = (start * STAMINA_LEVELS + stamina) * masks;
-    int head = 0;
-    int tail = 0;
     int found = -1;
+    int state;
 
     parent[first] = first;
-    queue[tail++] = first;
+    MazeQueue_Push(&queue, first);
 
-    while (head < tail && found < 0)
+    while (found < 0 && MazeQueue_Pop(&queue, &state))
     {
-        int state = queue[head++];
         int mask = state % masks;
         int left = (state / masks) % STAMINA_LEVELS;
         int at = (state / masks) / STAMINA_LEVELS;
@@ -111,7 +109,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
             if (edge->to == goal)
                 found = next;               /* reaching the exit wins, even with 0 stamina */
             else
-                queue[tail++] = next;
+                MazeQueue_Push(&queue, next);
         }
     }
 
@@ -133,7 +131,7 @@ int MazePlanner_Solve(const MazeGraph *graph, int start, int goal,
     }
 
     free(parent);
-    free(queue);
+    MazeQueue_Free(&queue);
     return length;
 }
 

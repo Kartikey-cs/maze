@@ -1,60 +1,10 @@
 #include "maze_solvers.hpp"
 
+#include "maze_structs.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
-#include <queue>
-#include <stack>
-
-namespace {
-
-// Min-heap in a vector: the smallest priority is always first, and the parent of item i
-// is item (i - 1) / 2.
-class MinHeap {
-public:
-    bool Empty() const { return items_.empty(); }
-
-    void Push(int priority, int vertex)
-    {
-        items_.push_back({priority, vertex});
-        size_t i = items_.size() - 1;
-        while (i > 0 && items_[(i - 1) / 2].priority > items_[i].priority)
-        {
-            std::swap(items_[(i - 1) / 2], items_[i]);
-            i = (i - 1) / 2;
-        }
-    }
-
-    // Removes the item with the smallest priority and returns its vertex.
-    int Pop()
-    {
-        int top = items_[0].vertex;
-        items_[0] = items_.back();
-        items_.pop_back();
-
-        size_t i = 0;
-        while (2 * i + 1 < items_.size())
-        {
-            size_t child = 2 * i + 1;
-            if (child + 1 < items_.size() && items_[child + 1].priority < items_[child].priority)
-                child++;
-            if (items_[i].priority <= items_[child].priority)
-                break;
-            std::swap(items_[i], items_[child]);
-            i = child;
-        }
-        return top;
-    }
-
-private:
-    struct Item {
-        int priority;
-        int vertex;
-    };
-    std::vector<Item> items_;
-};
-
-} // namespace
 
 SolveResult Solver::Solve(const MazeGraph& graph, int start, int goal) const
 {
@@ -87,15 +37,17 @@ void BfsSolver::Run(const MazeGraph& graph, int start, int goal, SolveResult& re
 {
     std::vector<int> cameFrom(graph.vertex_count, -1);
     std::vector<char> seen(graph.vertex_count, 0);
-    std::queue<int> todo;
+    MazeQueue todo;
+    int v;
+
+    if (!MazeQueue_Init(&todo, graph.vertex_count))       // each square is queued once
+        return;
 
     seen[start] = 1;
-    todo.push(start);
+    MazeQueue_Push(&todo, start);
 
-    while (!todo.empty())
+    while (MazeQueue_Pop(&todo, &v))
     {
-        int v = todo.front();
-        todo.pop();
         result.visited++;
         if (v == goal)
             break;
@@ -106,10 +58,11 @@ void BfsSolver::Run(const MazeGraph& graph, int start, int goal, SolveResult& re
             {
                 seen[edge->to] = 1;
                 cameFrom[edge->to] = v;
-                todo.push(edge->to);
+                MazeQueue_Push(&todo, edge->to);
             }
         }
     }
+    MazeQueue_Free(&todo);
 
     if (seen[goal])
         BuildPath(cameFrom, start, goal, result);
@@ -119,15 +72,17 @@ void DfsSolver::Run(const MazeGraph& graph, int start, int goal, SolveResult& re
 {
     std::vector<int> cameFrom(graph.vertex_count, -1);
     std::vector<char> seen(graph.vertex_count, 0);
-    std::stack<int> todo;
+    MazeStack todo;
+    int v;
+
+    if (!MazeStack_Init(&todo, graph.vertex_count))       // each square is pushed once
+        return;
 
     seen[start] = 1;
-    todo.push(start);
+    MazeStack_Push(&todo, start);
 
-    while (!todo.empty())
+    while (MazeStack_Pop(&todo, &v))
     {
-        int v = todo.top();
-        todo.pop();
         result.visited++;
         if (v == goal)
             break;
@@ -138,10 +93,11 @@ void DfsSolver::Run(const MazeGraph& graph, int start, int goal, SolveResult& re
             {
                 seen[edge->to] = 1;
                 cameFrom[edge->to] = v;
-                todo.push(edge->to);
+                MazeStack_Push(&todo, edge->to);
             }
         }
     }
+    MazeStack_Free(&todo);
 
     if (seen[goal])
         BuildPath(cameFrom, start, goal, result);
@@ -153,14 +109,18 @@ void DijkstraSolver::Run(const MazeGraph& graph, int start, int goal, SolveResul
     std::vector<int> cameFrom(graph.vertex_count, -1);
     std::vector<int> distance(graph.vertex_count, unreached);
     std::vector<char> done(graph.vertex_count, 0);
-    MinHeap heap;
+    MazeHeap heap;
+    int v;
+
+    // A square is pushed when a move to it gets shorter, at most once per move (4 per square).
+    if (!MazeHeap_Init(&heap, 4 * graph.vertex_count + 1))
+        return;
 
     distance[start] = 0;
-    heap.Push(Guess(graph, start, goal), start);
+    MazeHeap_Push(&heap, Guess(graph, start, goal), start);
 
-    while (!heap.Empty())
+    while (MazeHeap_Pop(&heap, &v))
     {
-        int v = heap.Pop();
         if (done[v])
             continue;                                 // an older, longer entry for v
         done[v] = 1;
@@ -175,10 +135,11 @@ void DijkstraSolver::Run(const MazeGraph& graph, int start, int goal, SolveResul
             {
                 distance[edge->to] = newDistance;
                 cameFrom[edge->to] = v;
-                heap.Push(newDistance + Guess(graph, edge->to, goal), edge->to);
+                MazeHeap_Push(&heap, newDistance + Guess(graph, edge->to, goal), edge->to);
             }
         }
     }
+    MazeHeap_Free(&heap);
 
     if (distance[goal] != unreached)
         BuildPath(cameFrom, start, goal, result);
