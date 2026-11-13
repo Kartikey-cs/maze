@@ -1,71 +1,56 @@
-CC ?= cc
-CXX ?= c++
-PYTHON ?= python3
-CFLAGS ?= -O2 -Wall -Wextra -Werror -std=c11
-CXXFLAGS ?= -O2 -Wall -Wextra -Werror -std=c++17
-CPPFLAGS ?=
-LDLIBS ?= -lm
-HEADERS = $(wildcard include/*.h) Makefile
+# Run from the project folder:
+#   make game | make cli | make menu | make dataset | make train | make check-model
 
-SQLITE_LIBS ?= -lsqlite3
+CC = cc
+CXX = c++
+PYTHON = python3
+CFLAGS = -O2 -Wall -Wextra -Werror -std=c11 -Iinclude -Imodel
+CXXFLAGS = -O2 -Wall -Wextra -Werror -std=c++17 -Iinclude
 
-# Homebrew installs Raylib here; other platforms can override these variables.
+# Raylib from Homebrew on Mac. On Windows (MSYS2) run:
+#   make game RAYLIB_LIBS='-lraylib -lopengl32 -lgdi32 -lwinmm'
 ifneq ($(wildcard /opt/homebrew/include/raylib.h),)
-RAYLIB_CFLAGS ?= -I/opt/homebrew/include
-RAYLIB_LIBS ?= -L/opt/homebrew/lib -lraylib
+RAYLIB_CFLAGS = -I/opt/homebrew/include
+RAYLIB_LIBS = -L/opt/homebrew/lib -lraylib
 else
-RAYLIB_CFLAGS ?=
-RAYLIB_LIBS ?= -lraylib
+RAYLIB_CFLAGS =
+RAYLIB_LIBS = -lraylib
 endif
 
-.PHONY: all dataset train check-model game cli menu
+CORE = src/maze_core.c src/maze_generator.c include/maze.h model/maze_model.h
+
+.PHONY: all game cli menu dataset train check-model
 .DELETE_ON_ERROR:
+
 all: build/maze_dataset
 
 build:
 	mkdir -p build
 
-build/maze_dataset: src/maze_dataset.c src/maze_features.c src/maze_sim.c src/maze_generator.c src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+build/maze_model_score: src/maze_model_score.c model/maze_model.h | build
+	$(CC) $(CFLAGS) src/maze_model_score.c -o $@
 
-build/maze_model_score: src/maze_model_score.c model/maze_model.h Makefile | build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Imodel src/maze_model_score.c -o $@
+build/maze_dataset: src/maze_dataset.c $(CORE) | build
+	$(CC) $(CFLAGS) src/maze_dataset.c src/maze_core.c src/maze_generator.c -lm -o $@
 
-build/maze_graph.o: src/maze_graph.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_graph.c -o $@
+build/maze_cli: $(CORE) | build
+	$(CC) $(CFLAGS) -DMAZE_CLI src/maze_generator.c src/maze_core.c -lm -o $@
 
-build/maze_generator.o: src/maze_generator.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_generator.c -o $@
+build/maze_core.o: $(CORE) | build
+	$(CC) $(CFLAGS) -c src/maze_core.c -o $@
 
-build/maze_planner.o: src/maze_planner.c model/maze_model.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -I. $(CFLAGS) -c src/maze_planner.c -o $@
+build/maze_generator.o: src/maze_generator.c include/maze.h | build
+	$(CC) $(CFLAGS) -c src/maze_generator.c -o $@
 
-build/maze_features.o: src/maze_features.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_features.c -o $@
+build/maze_users.o: src/maze_users.c include/maze.h | build
+	$(CC) $(CFLAGS) -c src/maze_users.c -o $@
 
-build/maze_structs.o: src/maze_structs.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -c src/maze_structs.c -o $@
+# the game is C++ and links the C files compiled above
+build/maze_game: src/maze_game.cpp build/maze_core.o build/maze_generator.o build/maze_users.o | build
+	$(CXX) $(CXXFLAGS) $(RAYLIB_CFLAGS) src/maze_game.cpp build/maze_core.o build/maze_generator.o build/maze_users.o $(RAYLIB_LIBS) -lsqlite3 -lm -o $@
 
-build/maze_solvers.o: src/maze_solvers.cpp include/maze_solvers.hpp $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(CXXFLAGS) -c src/maze_solvers.cpp -o $@
-
-build/maze_auth.o: src/maze_auth.c vendor/sqlite3.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_auth.c -o $@
-
-build/maze_db.o: src/maze_db.c vendor/sqlite3.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_db.c -o $@
-
-build/maze_stats.o: src/maze_stats.c vendor/sqlite3.h $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude -Ivendor $(CFLAGS) -c src/maze_stats.c -o $@
-
-build/maze_game: src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_solvers.o build/maze_structs.o $(HEADERS) | build
-	$(CXX) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CXXFLAGS) src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o build/maze_db.o build/maze_stats.o build/maze_planner.o build/maze_features.o build/maze_solvers.o build/maze_structs.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
-
-build/maze_cli: src/maze_generator.c $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(CFLAGS) -DMAZE_STANDALONE src/maze_generator.c -o $@
-
-build/menu: src/menu.c build/maze_auth.o build/maze_db.o $(HEADERS) | build
-	$(CC) $(CPPFLAGS) -Iinclude $(RAYLIB_CFLAGS) $(CFLAGS) src/menu.c build/maze_auth.o build/maze_db.o $(RAYLIB_LIBS) $(SQLITE_LIBS) -o $@
+build/menu: src/menu.c build/maze_users.o | build
+	$(CC) $(CFLAGS) $(RAYLIB_CFLAGS) src/menu.c build/maze_users.o $(RAYLIB_LIBS) -lsqlite3 -lm -o $@
 
 game: build/maze_game
 cli: build/maze_cli
