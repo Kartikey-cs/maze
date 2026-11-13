@@ -1,69 +1,78 @@
+/* menu.c - stand-alone login / sign up screen. The game has its own login screen;
+   this one uses the same account code (maze_users.c). */
 #include "raylib.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "maze.h"
 #include <string.h>
-#include "maze_auth.h"
 
 #define SCREEN_WIDTH  1280
 #define SCREEN_HEIGHT 720
-#define MAX_LEN MAZE_AUTH_MAX_LEN
 
-typedef enum { MODE_SIGNUP, MODE_LOGIN } Mode;
-typedef enum { FIELD_NONE, FIELD_USER, FIELD_PASS } Field;
+/* which text box is selected */
+#define FIELD_NONE 0
+#define FIELD_USER 1
+#define FIELD_PASS 2
 
-void DrawInputBox(Rectangle rect, const char *text, bool active, bool mask)
+/* draws a text box. if hide is true it shows **** instead of the text */
+void DrawInputBox(Rectangle box, const char *text, bool selected, bool hide)
 {
-    DrawRectangleRec(rect, active ? (Color){40,40,60,255} : (Color){30,30,30,255});
-    DrawRectangleLinesEx(rect, 2, active ? SKYBLUE : GRAY);
+    char shown[MAX_LEN + 1];
+    int i;
 
-    char display[MAX_LEN + 1];
-    if (mask)
+    if (selected)
     {
-        int len = (int)strlen(text);
-        for (int i = 0; i < len; i++) display[i] = '*';
-        display[len] = '\0';
+        DrawRectangleRec(box, (Color){40, 40, 60, 255});
+        DrawRectangleLinesEx(box, 2, SKYBLUE);
     }
     else
     {
-        strcpy(display, text);
+        DrawRectangleRec(box, (Color){30, 30, 30, 255});
+        DrawRectangleLinesEx(box, 2, GRAY);
     }
 
-    DrawText(display, rect.x + 10, rect.y + rect.height / 2 - 10, 20, WHITE);
+    strcpy(shown, text);
+    if (hide)
+    {
+        for (i = 0; shown[i] != '\0'; i++)
+            shown[i] = '*';
+    }
+
+    DrawText(shown, box.x + 10, box.y + box.height / 2 - 10, 20, WHITE);
 }
 
-void UpdateTextField(char *buffer)
+/* adds typed letters to the text and handles backspace */
+void UpdateTextField(char *text)
 {
-    int letter = GetCharPressed();
-    int len = (int)strlen(buffer);
+    int len = strlen(text);
+    int key = GetCharPressed();
 
-    while (letter > 0)
+    while (key > 0)
     {
-        if ((letter >= 32) && (letter <= 125) && (len < MAX_LEN - 1))
+        if (key >= 32 && key <= 125 && len < MAX_LEN - 1)
         {
-            buffer[len] = (char)letter;
-            buffer[len + 1] = '\0';
+            text[len] = (char)key;
             len++;
+            text[len] = '\0';
         }
-        letter = GetCharPressed();
+        key = GetCharPressed();
     }
 
     if (IsKeyPressed(KEY_BACKSPACE) && len > 0)
-        buffer[len - 1] = '\0';
+        text[len - 1] = '\0';
 }
 
-bool DrawButton(Rectangle rect, const char *text, Color base)
+bool DrawButton(Rectangle box, const char *text, Color color)
 {
-    Vector2 mouse = GetMousePosition();
-    bool hover = CheckCollisionPointRec(mouse, rect);
-
-    DrawRectangleRec(rect, hover ? Fade(base, 1.0f) : Fade(base, 0.7f));
-    DrawRectangleLinesEx(rect, 2, WHITE);
-
+    bool hover = CheckCollisionPointRec(GetMousePosition(), box);
     int fontSize = 22;
-    DrawText(text,
-        rect.x + rect.width / 2 - MeasureText(text, fontSize) / 2,
-        rect.y + rect.height / 2 - fontSize / 2,
-        fontSize, WHITE);
+
+    if (hover)
+        DrawRectangleRec(box, color);
+    else
+        DrawRectangleRec(box, Fade(color, 0.7f));
+    DrawRectangleLinesEx(box, 2, WHITE);
+
+    DrawText(text, box.x + box.width / 2 - MeasureText(text, fontSize) / 2,
+             box.y + box.height / 2 - fontSize / 2, fontSize, WHITE);
 
     return hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
@@ -75,94 +84,97 @@ int main(void)
 
     Texture2D background = LoadTexture("assets/background.png");
 
-    Mode mode = MODE_SIGNUP;
-    Field active = FIELD_NONE;
-
+    bool signupMode = true;    /* false = login mode */
+    int selected = FIELD_NONE;
     char username[MAX_LEN] = "";
     char password[MAX_LEN] = "";
     char message[128] = "";
 
-    Rectangle panel = { SCREEN_WIDTH/2 - 220, SCREEN_HEIGHT/2 - 200, 440, 400 };
-
-    Rectangle signupTab = { panel.x, panel.y, panel.width/2, 50 };
-    Rectangle loginTab  = { panel.x + panel.width/2, panel.y, panel.width/2, 50 };
-
-    Rectangle userBox = { panel.x + 30, panel.y + 100, panel.width - 60, 45 };
-    Rectangle passBox = { panel.x + 30, panel.y + 170, panel.width - 60, 45 };
-
-    Rectangle submitBtn = { panel.x + 30, panel.y + 240, panel.width - 60, 50 };
+    Rectangle panel = {SCREEN_WIDTH / 2 - 220, SCREEN_HEIGHT / 2 - 200, 440, 400};
+    Rectangle signupTab = {panel.x, panel.y, panel.width / 2, 50};
+    Rectangle loginTab = {panel.x + panel.width / 2, panel.y, panel.width / 2, 50};
+    Rectangle userBox = {panel.x + 30, panel.y + 100, panel.width - 60, 45};
+    Rectangle passBox = {panel.x + 30, panel.y + 170, panel.width - 60, 45};
+    Rectangle submitButton = {panel.x + 30, panel.y + 240, panel.width - 60, 50};
+    Color tabColor = {40, 40, 50, 255};
 
     while (!WindowShouldClose())
     {
-
+        /* ----- input ----- */
         Vector2 mouse = GetMousePosition();
+        bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        if (clicked)
         {
-            if (CheckCollisionPointRec(mouse, userBox)) active = FIELD_USER;
-            else if (CheckCollisionPointRec(mouse, passBox)) active = FIELD_PASS;
-            else active = FIELD_NONE;
+            if (CheckCollisionPointRec(mouse, userBox))
+                selected = FIELD_USER;
+            else if (CheckCollisionPointRec(mouse, passBox))
+                selected = FIELD_PASS;
+            else
+                selected = FIELD_NONE;
+
+            if (CheckCollisionPointRec(mouse, signupTab))
+            {
+                signupMode = true;
+                message[0] = '\0';
+            }
+            if (CheckCollisionPointRec(mouse, loginTab))
+            {
+                signupMode = false;
+                message[0] = '\0';
+            }
         }
 
         if (IsKeyPressed(KEY_TAB))
-            active = (active == FIELD_USER) ? FIELD_PASS : FIELD_USER;
+        {
+            if (selected == FIELD_USER)
+                selected = FIELD_PASS;
+            else
+                selected = FIELD_USER;
+        }
 
-        if (active == FIELD_USER) UpdateTextField(username);
-        else if (active == FIELD_PASS) UpdateTextField(password);
+        if (selected == FIELD_USER)
+            UpdateTextField(username);
+        else if (selected == FIELD_PASS)
+            UpdateTextField(password);
 
+        /* ----- draw ----- */
         BeginDrawing();
         ClearBackground(BLACK);
 
-        DrawTexturePro(
-            background,
-            (Rectangle){0, 0, background.width, background.height},
-            (Rectangle){0, 0, SCREEN_WIDTH, SCREEN_HEIGHT},
-            (Vector2){0, 0},
-            0,
-            WHITE
-        );
+        DrawTexturePro(background, (Rectangle){0, 0, background.width, background.height},
+                       (Rectangle){0, 0, SCREEN_WIDTH, SCREEN_HEIGHT}, (Vector2){0, 0}, 0, WHITE);
 
-        DrawRectangleRec(panel, (Color){25,25,35,180});
+        DrawRectangleRec(panel, (Color){25, 25, 35, 180});
         DrawRectangleLinesEx(panel, 2, GRAY);
 
-        DrawRectangleRec(signupTab, mode == MODE_SIGNUP ? SKYBLUE : (Color){40,40,50,255});
-        DrawRectangleRec(loginTab,  mode == MODE_LOGIN  ? SKYBLUE : (Color){40,40,50,255});
+        /* tabs */
+        DrawRectangleRec(signupTab, signupMode ? SKYBLUE : tabColor);
+        DrawRectangleRec(loginTab, signupMode ? tabColor : SKYBLUE);
         DrawText("SIGN UP", signupTab.x + 20, signupTab.y + 15, 20, WHITE);
-        DrawText("LOG IN",  loginTab.x + 30,  loginTab.y + 15,  20, WHITE);
-
-        if (CheckCollisionPointRec(mouse, signupTab) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            mode = MODE_SIGNUP;
-            message[0] = '\0';
-        }
-        if (CheckCollisionPointRec(mouse, loginTab) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            mode = MODE_LOGIN;
-            message[0] = '\0';
-        }
+        DrawText("LOG IN", loginTab.x + 30, loginTab.y + 15, 20, WHITE);
 
         DrawText("Username:", userBox.x, userBox.y - 22, 16, LIGHTGRAY);
-        DrawInputBox(userBox, username, active == FIELD_USER, false);
-
+        DrawInputBox(userBox, username, selected == FIELD_USER, false);
         DrawText("Password:", passBox.x, passBox.y - 22, 16, LIGHTGRAY);
-        DrawInputBox(passBox, password, active == FIELD_PASS, true);
+        DrawInputBox(passBox, password, selected == FIELD_PASS, true);
 
-        const char *btnLabel = (mode == MODE_SIGNUP) ? "CREATE ACCOUNT" : "LOG IN";
-        if (DrawButton(submitBtn, btnLabel, (Color){70,170,255,255}))
+        if (DrawButton(submitButton, signupMode ? "CREATE ACCOUNT" : "LOG IN", (Color){70, 170, 255, 255}))
         {
             message[0] = '\0';
-            if (mode == MODE_SIGNUP)
-                MazeAuth_Signup(username, password, message, sizeof message);
+            if (signupMode)
+                signup_user(username, password, message, sizeof(message));
             else
-                MazeAuth_Login(username, password, message, sizeof message);
+                login_user(username, password, message, sizeof(message));
         }
 
-        if (strlen(message) > 0)
-            DrawText(message, panel.x + 30, submitBtn.y + 70, 18, YELLOW);
+        if (message[0] != '\0')
+            DrawText(message, panel.x + 30, submitButton.y + 70, 18, YELLOW);
 
         EndDrawing();
     }
 
     UnloadTexture(background);
     CloseWindow();
-    return 0;}
+    return 0;
+}
