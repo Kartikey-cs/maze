@@ -762,7 +762,7 @@ static int make_candidate(Difficulty difficulty, unsigned int seed, MazeChoice *
             features_to_array(&f, arr);
             choice->difficulty = difficulty;
             choice->seed = seed;
-            choice->predicted_success = MazeModel_PredictSuccess(arr);
+            choice->predicted_success = predict_success(arr);
             ok = 1;
         }
     }
