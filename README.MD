@@ -1,166 +1,148 @@
-## Project layout
+# MazeQuest
+
+A maze game made with C and C++. The maze is generated in C, stored as a graph
+(adjacency list), and checked with BFS (queue) and DFS (stack). The game screen
+is written in C++ with classes. Players log in, get an Elo-style rating, and can
+compare four path-finding algorithms on the maze. A small trained model guesses
+how hard a maze is.
+
+## Files
 
 ```text
-src/        C implementations and the C++ game
-include/    Shared maze headers
-tools/      Offline model training and verification scripts
-vendor/     Third-party SQLite header
-data/       Generated training dataset
-model/      Exported C model, parameters, and results
-assets/     Game backgrounds and sprites
-resources/  Fruit icons and character assets
-build/      Executables and objects (ignored by Git)
+include/maze.h          all structs and function declarations
+src/maze_generator.c    makes a random maze (DFS backtracker) + terminal version
+src/maze_core.c         graph, BFS, DFS, queue/stack/heap, maze features, the two bots,
+                        stamina rules, route planner, adaptive maze chooser
+src/maze_users.c        sign up / log in (salted SHA-256), ratings, leaderboard, CSV export
+src/maze_game.cpp       the game (C++ classes: Maze, Player, Fruit, Game, and the
+                        solver classes BFS, DFS, Dijkstra, A*)
+src/menu.c              stand-alone login window (same account code as the game)
+src/maze_dataset.c      makes the training data, and --score runs the model
+tools/train_model.py    trains the model and checks C gives the same answers
+data/maze_data.csv      the training data
+model/                  trained model (maze_model.h for C, .json, report.json)
+assets/                 pictures used by the game and menu
+roadmap/                separate program: Dehradun road map (see roadmap/README.md)
 ```
 
-Run commands from the repository root. See [START.md](START.md) for
-the game, terminal generator, and login menu. Older root-level executables are
-preserved under `build/legacy/`.
+## How to run
 
-### Prerequisites
-Fruit images thanks to:https://scrimsy.itch.io/fruit-icons-16x16
-## Raylib
- Documentation: https://www.raylib.com/
- Cmd: pacman -S mingw-w64-ucrt-x86_64-raylib
-Used for:
-
-- Window creation
-- Graphics rendering
-- Input handling
-- Audio
-- Textures
-- Animations
-
-## Raygui
-Raygui.h(https://github.com/raysan5/raygui)
-Used for:
-
-- Textboxes
-- Buttons
-- Sliders
-- Checkboxes
-- GUI widgets
-
-## C/C++ Hybrid Structure
-
-The playable hybrid build is split the way the proposal describes:
-
-- `src/maze_graph.c` / `include/maze_graph.h`: C data-structure layer. It builds the maze as a graph with adjacency lists and implements BFS with a queue plus DFS with a stack.
-- `src/maze_game.cpp`: C++ game layer. It uses simple `Maze`, `Player`, `Fruit`, and `Game` classes to show object-oriented programming. It also contains the start menu and game screen flow.
-- `src/maze_auth.c` / `include/maze_auth.h`: C signup and login on SQLite. The game opens on a login screen that uses it, and `src/menu.c` is a standalone login window that shares the same code.
-
-Each game generates a new random maze with `src/maze_generator.c`. The size
-(15, 21 or 31 cells wide), number of fruits, and start and goal cells come from
-the difficulty chosen in the menu.
-
-Fruit pickups use PNG icons from `resources/scrimsy fruit icons/`.
-
-Build the hybrid game with MSYS2 UCRT64. Compile the C data-structure file with `gcc`, then link it with the C++ game classes using `g++`:
+Run every command from this folder (the one with the `Makefile`), otherwise the
+game can't find the pictures in `assets/`.
 
 ```sh
-mkdir -p build
-gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_graph.c -o build/maze_graph.o
-gcc -Wall -Wextra -std=c11 -Iinclude -c src/maze_generator.c -o build/maze_generator.o
-gcc -Wall -Wextra -std=c11 -Iinclude -Ivendor -c src/maze_auth.c -o build/maze_auth.o
-g++ -Wall -Wextra -std=c++17 -Iinclude src/maze_game.cpp build/maze_graph.o build/maze_generator.o build/maze_auth.o -o build/MazeQuestHybrid.exe -lraylib -lopengl32 -lgdi32 -lwinmm -lsqlite3
+make game && ./build/maze_game     # the game
+make cli && ./build/maze_cli       # maze in the terminal (no raylib needed)
+make menu && ./build/menu          # stand-alone login window
+make check-model                   # check the C model matches Python
+make train                         # make the data again and retrain the model
 ```
 
-## Maze features, simulated players, and difficulty model
+### Playing
 
-The feature extractor, simulated players, dataset generator, and exported model
-scorer are C11. Python is used only for offline training and C/Python verification,
-as requested in the assignment. The game and C model have no Python runtime
-dependency. This pipeline needs a C compiler, GNU Make, and Python 3.10+ with its
-standard library; Raylib, NumPy, and scikit-learn are not needed.
+1. The game opens on a login screen. Use **SIGN UP** the first time, then **LOG IN**
+   (Tab switches boxes, Enter submits). Accounts are saved in `maze_game.db` in the
+   folder you run the game from.
+2. Pick **EASY**, **MEDIUM**, **HARD** or **ADAPTIVE**. Adaptive makes several mazes,
+   drops the ones that can't be won, and picks one that suits your rating.
+3. Move with WASD or the arrow keys. Every move costs 1 stamina, each fruit gives
+   +20 (max 100). Reach the green circle before stamina runs out.
+4. **H** shows the best route from where you are (yellow dots). **C** compares
+   BFS, DFS, Dijkstra and A* on the maze (blue, orange, magenta, white).
+5. After the game your rating changes. Press Enter to go back to the menu.
+   **LEADERBOARD** shows the top 10 players and can export every game to `play_log.csv`.
 
-From the repository root (macOS/Linux terminal or MSYS2 on Windows):
+Every maze is checked with the stamina planner first, so it can always be won.
+Hard mazes are often rejected, so Hard can take a moment to start.
+
+### What you need
+
+| Program | Needs |
+| --- | --- |
+| Game | C and C++ compiler, make, raylib, SQLite (`libsqlite3-dev` on Linux) |
+| Terminal maze | C compiler, make |
+| Login window | C compiler, make, raylib, SQLite |
+| Model training | C compiler, make, Python 3.10+ (no extra packages) |
+
+Raylib from Homebrew (`/opt/homebrew`) is found automatically on Mac.
+On Windows use the MSYS2 UCRT64 terminal (with the raylib and sqlite3 packages):
 
 ```sh
-make                  # Build the C dataset generator
-make check-model      # Check that the C scores match the Python model
-make train            # Regenerate the dataset, train/export, and verify C scores
+make game RAYLIB_LIBS='-lraylib -lopengl32 -lgdi32 -lwinmm'
+./build/maze_game.exe
 ```
 
-`make train` generates 600 mazes: seeds 1–200 at each existing difficulty preset,
-with 64 trials per bot per maze (76,800 simulated runs). Outputs are:
+If `python3` is called `python` on your computer: `make train PYTHON=python`.
 
-- `data/maze_data.csv`: seed, difficulty, fruit/trial counts, seven features,
-  per-bot success counts, and the pooled success-rate label.
-- `model/maze_model.h`: C weights, training means/scales, and
-  `MazeModel_PredictSuccess`, returning an estimated success rate in `[0, 1]`.
-- `model/maze_model.json`: the same parameters for Python verification.
-- `model/report.json`: held-out errors, baseline parameters, seed groups,
-  dataset checksum, and an explicit comparison verdict.
+## How it works
 
-To run a different experiment without overwriting these reference artifacts:
+**Maze:** `generate_maze()` starts with all walls and does a DFS from cell (1,1),
+breaking walls to random unvisited neighbours. Easy and medium mazes then break
+some extra walls so there are loops. `build_graph()` turns every open cell into a
+vertex and joins neighbours with edges (adjacency list).
+
+| Difficulty | Size | Loops | Fruits |
+| --- | --- | --- | --- |
+| Easy | 15 x 15 | 15% | 5 |
+| Medium | 21 x 21 | 5% | 4 |
+| Hard | 31 x 31 | 0% | 3 |
+
+**Planner (`plan_route`):** a BFS where each state is (cell, stamina left, which
+fruits are eaten). The first time it reaches the exit is the shortest route that
+can actually be won. The game uses it to reject impossible mazes and for the H hint.
+
+**Solvers:** `Solver` is a base class; `BfsSolver`, `DfsSolver`, `DijkstraSolver`
+and `AStarSolver` only change how they search (queue, stack, min-heap, and heap
+plus the Manhattan distance guess). The table shows cells checked, route length
+and time in microseconds.
+
+**Accounts:** passwords are saved as a random salt plus SHA-256 repeated 10000
+times. Old accounts with the earlier unsalted hash still log in and are upgraded
+when they do. All queries use `?` placeholders, so usernames can't inject SQL.
+
+**Ratings:** Elo with K = 32. Easy, medium and hard mazes count as 800, 1000 and
+1200. Saving a game and updating the rating happen in one transaction.
+
+## Difficulty model
+
+Two bots play each maze with the same stamina rules as the player:
+
+- **random bot**: goes to any neighbour
+- **greedy bot**: goes to the neighbour it visited least, and if tied, the one
+  closest to the exit (Manhattan distance)
+
+`make train` makes 600 mazes (seeds 1-200, all 3 difficulties), runs each bot
+64 times per maze, and saves the success rate with 7 features of the maze:
+vertices, edges, dead ends, junctions, loops, shortest path length (moves),
+and detour ratio (shortest path / straight line distance).
+
+`tools/train_model.py` fits a ridge regression (only the Python standard
+library). Every 5th seed is kept for testing, with all its difficulties, so the
+same maze seed is never in both train and test. We compare it with a baseline
+that only uses `shortest_path + dead_ends`.
+
+**Result:** test MSE **0.01358** for the model vs **0.01524** for the baseline
+(about 10.9% better). The C version of the model (`model/maze_model.h`) gives
+the same answers as Python within 1e-12 on all 600 mazes. This only measures
+these two bots, not real players. The adaptive mode uses this model to sort
+mazes from easiest to hardest.
+
+To try a different experiment without changing the saved files:
 
 ```sh
 ./build/maze_dataset 100 32 1001 > build/custom.csv
 python3 tools/train_model.py build/custom.csv --output build/custom_model
-cc -O2 -std=c11 -Ibuild/custom_model src/maze_model_score.c -o build/custom_score
-python3 tools/verify_model.py build/custom.csv build/custom_model/maze_model.json ./build/custom_score
 ```
 
-Generator arguments are `seed_count trials_per_bot first_seed`; all must be
-positive, and seeds must fit in 32 bits. Seed zero is excluded because the existing
-maze generator treats it as a time-based seed.
+## Common problems
 
-### Features and simulation rules
+- **Pictures missing:** run `./build/maze_game` from this folder, not from inside `build/`.
+- **`raylib.h` not found:** install raylib, or build with
+  `make game RAYLIB_CFLAGS=-I/path/to/include RAYLIB_LIBS='-L/path/to/lib -lraylib'`.
+- **`sqlite3.h` not found:** install SQLite's development files
+  (`libsqlite3-dev` on Linux, the sqlite3 package in MSYS2).
 
-`src/maze_features.c` extracts features from a connected `MazeGraph`: vertex count,
-undirected edge count, dead ends (degree 1), junctions (degree >= 3), independent
-loops (`edges - vertices + 1`), BFS shortest-path length in **moves**, and that
-length divided by Euclidean distance in grid cells. Coincident endpoints have
-length 0 and ratio 1. Invalid endpoints, empty graphs, and disconnected graphs
-return failure. Feature vector order is fixed by `MazeFeatures_ToVector`.
+## Credits
 
-Both bots share `include/maze_rules.h` with the game: start at 100 stamina, spend 1 per
-legal move, and collect each fruit once for +20, capped at 100. Arriving at the
-exit with zero stamina succeeds; a fruit reached on the last move can restore
-stamina before exhaustion is checked. The random walker chooses a legal neighbor.
-The greedy explorer chooses the least-visited neighbor, then the one closest to
-the exit by Manhattan distance, with seeded random tie-breaking. Neither bot
-looks up the BFS route.
-
-Each maze has one reproducible fruit layout, sampled without replacement from
-walkable cells excluding the start and exit. All trials and both bots share that
-layout. Fruit counts come from the existing difficulty presets: 5/4/3 for
-easy/medium/hard. The label is total successes divided by twice the trials per
-bot, so the two policies contribute equally.
-
-### Training and results
-
-The model is a small linear ridge regression with regularization 0.001. Means,
-scales, and coefficients are fitted on training seeds only. Seeds divisible by
-5 are held out across **all** difficulties: 480 training mazes and 120 test mazes.
-The baseline fits the same kind of regression to the single value
-`shortest_path + dead_ends`. Both predictions are clipped to `[0, 1]` and compared
-using held-out mean squared error. Training always reports whether the model
-beats the baseline, including when it does not.
-
-The supplied reference run scored **0.01358164** MSE versus the baseline's
-**0.01524337** (about 10.9% lower). C and Python predictions matched within
-`1e-12` across all 600 maze vectors and two boundary probes. These scores measure
-this mixture of bots under the preset sizes and fruit rules; they have not been
-validated as human difficulty estimates or on other maze/fruit configurations.
-
-Use the exported model from C without Python:
-
-```c
-#include "maze_features.h"
-#include "model/maze_model.h"
-
-/* graph has already been initialized and built from a grid. */
-MazeFeatures features;
-if (MazeFeatures_Extract(&graph, start_row, start_col, goal_row, goal_col, &features)) {
-    double vector[MAZE_FEATURE_COUNT];
-    MazeFeatures_ToVector(&features, vector);
-    double success_rate = MazeModel_PredictSuccess(vector);
-    double difficulty = 1.0 - success_rate;
-    /* Use success_rate or difficulty here. */
-}
-```
-
-Compile the caller with `-Iinclude -I. src/maze_features.c src/maze_graph.c -lm`. The header is small
-and needs no training library. The playable game generates mazes using the selected
-difficulty; the trained model is available as a separate C scoring API.
-
+- Fruit icons: https://scrimsy.itch.io/fruit-icons-16x16
+- Raylib: https://www.raylib.com/

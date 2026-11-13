@@ -11,3 +11,5 @@ build/
 __pycache__/
 *.csv.tmp
 26bd57988a50820f6101150281616dc6/
+resources/
+play_log.csv
