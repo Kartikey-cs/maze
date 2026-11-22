@@ -9,13 +9,21 @@ how hard a maze is.
 ## Files
 
 ```text
-include/maze.h          all structs and function declarations
+include/                one header for each part (the C ones are used by the game too):
+  maze_generator.h        maze size, difficulty levels, random numbers
+  maze_graph.h            graph (adjacency list), BFS, DFS, maze features
+  maze_structs.h          our own queue, stack and min-heap
+  maze_planner.h          stamina rules, fruit, route planner
+  maze_adaptive.h         the two bots, adaptive maze chooser
+  maze_users.h            accounts, ratings, leaderboard
+  maze_solvers.hpp        C++ solver classes: BFS, DFS, Dijkstra, A*
 src/maze_generator.c    makes a random maze (DFS backtracker) + terminal version
-src/maze_core.c         graph, BFS, DFS, queue/stack/heap, maze features, the two bots,
-                        stamina rules, route planner, adaptive maze chooser
+src/maze_graph.c        graph, BFS, DFS, maze features
+src/maze_structs.c      queue, stack, min-heap
+src/maze_planner.c      stamina rules, fruit placement, route planner
+src/maze_adaptive.c     the two bots and the adaptive maze chooser
 src/maze_users.c        sign up / log in (salted SHA-256), ratings, leaderboard, CSV export
-src/maze_game.cpp       the game (C++ classes: Maze, Player, Fruit, Game, and the
-                        solver classes BFS, DFS, Dijkstra, A*)
+src/maze_game.cpp       the game (C++ classes: Maze, Player, Fruit, Game)
 src/menu.c              stand-alone login window (same account code as the game)
 src/maze_dataset.c      makes the training data, and --score runs the model
 tools/train_model.py    trains the model and checks C gives the same answers

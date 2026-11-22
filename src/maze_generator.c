@@ -1,8 +1,23 @@
 /* maze_generator.c - makes a random maze using DFS (recursive backtracker) */
-#include "maze.h"
+#include "maze_generator.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+/* xorshift: a simple random number generator.
+   we use our own instead of rand() so the same seed gives the
+   same maze on every computer */
+uint32_t next_random(uint32_t *state)
+{
+    uint32_t x = *state;
+    if (x == 0)
+        x = 1;
+    x = x ^ (x << 13);
+    x = x ^ (x >> 17);
+    x = x ^ (x << 5);
+    *state = x;
+    return x;
+}
 
 /* mix up an array (Fisher-Yates shuffle) */
 static void shuffle(int *arr, int n, uint32_t *rng)
