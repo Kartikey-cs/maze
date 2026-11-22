@@ -112,7 +112,7 @@ void DijkstraSolver::Run(const MazeGraph& graph, int start, int goal, SolveResul
     MazeHeap heap;
     int v;
 
-    // A square is pushed when a move to it gets shorter, at most once per move (4 per square).
+    // Square is pushed when a move to it gets shorter, at most once per move (4 per square).
     if (!MazeHeap_Init(&heap, 4 * graph.vertex_count + 1))
         return;
 
