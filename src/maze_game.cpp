@@ -31,6 +31,7 @@
 const char *difficultyNames[3] = {"Easy", "Medium", "Hard"};
 
 // ------------------------------------------------------------------
+
 // small drawing helpers
 
 // middle of a cell on the screen
@@ -42,14 +43,15 @@ Vector2 CellCenter(int row, int col, int offsetX, int offsetY, int tileSize)
     return v;
 }
 
-// draws a picture stretched into a box
+// Draws a picture stretched into a box
+
 void DrawImageInBox(Texture2D tex, Rectangle box)
 {
     Rectangle source = {0, 0, (float)tex.width, (float)tex.height};
     DrawTexturePro(tex, source, box, Vector2{0, 0}, 0, WHITE);
 }
 
-// draws a button and returns true when it is clicked
+// Draws a button and returns true when it is clicked
 bool DrawButton(Rectangle rect, const char *text)
 {
     bool hover = CheckCollisionPointRec(GetMousePosition(), rect);

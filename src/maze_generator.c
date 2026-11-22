@@ -7,6 +7,7 @@
 /* xorshift: a simple random number generator.
    we use our own instead of rand() so the same seed gives the
    same maze on every computer */
+
 uint32_t next_random(uint32_t *state)
 {
     uint32_t x = *state;
@@ -19,7 +20,8 @@ uint32_t next_random(uint32_t *state)
     return x;
 }
 
-/* mix up an array (Fisher-Yates shuffle) */
+/*mix up an array (Fisher-Yates shuffle)*/
+
 static void shuffle(int *arr, int n, uint32_t *rng)
 {
     int i;
