@@ -19,7 +19,7 @@ include/                one header for each part (the C ones are used by the gam
   maze_solvers.hpp        C++ solver classes: BFS, DFS, Dijkstra, A*
 src/maze_generator.c    makes a random maze (DFS backtracker) + terminal version
 src/maze_graph.c        graph, BFS, DFS, maze features
-src/maze_structs.c      queue, stack, min-heap
+src/maze_structs.c      queue, stack , min-heap
 src/maze_planner.c      stamina rules, fruit placement, route planner
 src/maze_adaptive.c     the two bots and the adaptive maze chooser
 src/maze_users.c        sign up / log in (salted SHA-256), ratings, leaderboard, CSV export
