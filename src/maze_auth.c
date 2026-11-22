@@ -119,7 +119,7 @@ static void HashPassword(const unsigned char salt[SALT_BYTES], const char *passw
     ToHex(digest, 32, hex);
 }
 
-/* Makes a fresh random salt and builds the text that goes in the database. */
+/* Generates random salt , hashes the password, and formats it as "salt:hash" for database storage.*/
 static void MakeStoredPassword(const char *password, char stored[STORED_LEN])
 {
     unsigned char salt[SALT_BYTES];
@@ -131,7 +131,7 @@ static void MakeStoredPassword(const char *password, char stored[STORED_LEN])
     stored[2 * SALT_BYTES] = ':';
     memcpy(stored + 2 * SALT_BYTES + 1, hash, 65);
 }
-
+/* converts a single lowercase hex character to its integer value.*/
 static int HexValue(char c)
 {
     if (c >= '0' && c <= '9') return c - '0';
