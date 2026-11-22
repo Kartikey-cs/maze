@@ -1,7 +1,7 @@
 /* menu.c - stand-alone login / sign up screen. The game has its own login screen;
    this one uses the same account code (maze_users.c). */
 #include "raylib.h"
-#include "maze.h"
+#include "maze_users.h"
 #include <string.h>
 
 #define SCREEN_WIDTH  1280

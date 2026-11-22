@@ -1,8 +1,9 @@
 /* maze_users.c - accounts (sign up / log in), ratings, leaderboard and saved games.
    Everything is stored with SQLite in maze_game.db */
-#include "maze.h"
+#include "maze_users.h"
 #include <math.h>
 #include <sqlite3.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 

@@ -17,7 +17,10 @@ RAYLIB_CFLAGS =
 RAYLIB_LIBS = -lraylib
 endif
 
-CORE = src/maze_core.c src/maze_generator.c include/maze.h model/maze_model.h
+HEADERS = $(wildcard include/*.h) model/maze_model.h
+
+# the maze code: C files that the dataset program and the game both use
+MAZE_OBJECTS = build/maze_structs.o build/maze_graph.o build/maze_planner.o build/maze_adaptive.o build/maze_generator.o
 
 .PHONY: all game cli menu dataset train check-model
 .DELETE_ON_ERROR:
@@ -27,24 +30,18 @@ all: build/maze_dataset
 build:
 	mkdir -p build
 
-build/maze_dataset: src/maze_dataset.c $(CORE) | build
-	$(CC) $(CFLAGS) src/maze_dataset.c src/maze_core.c src/maze_generator.c -lm -o $@
+build/%.o: src/%.c $(HEADERS) | build
+	$(CC) $(CFLAGS) -c $< -o $@
 
-build/maze_cli: $(CORE) | build
-	$(CC) $(CFLAGS) -DMAZE_CLI src/maze_generator.c src/maze_core.c -lm -o $@
+build/maze_dataset: src/maze_dataset.c $(MAZE_OBJECTS) $(HEADERS) | build
+	$(CC) $(CFLAGS) src/maze_dataset.c $(MAZE_OBJECTS) -lm -o $@
 
-build/maze_core.o: $(CORE) | build
-	$(CC) $(CFLAGS) -c src/maze_core.c -o $@
-
-build/maze_generator.o: src/maze_generator.c include/maze.h | build
-	$(CC) $(CFLAGS) -c src/maze_generator.c -o $@
-
-build/maze_users.o: src/maze_users.c include/maze.h | build
-	$(CC) $(CFLAGS) -c src/maze_users.c -o $@
+build/maze_cli: src/maze_generator.c $(HEADERS) | build
+	$(CC) $(CFLAGS) -DMAZE_CLI src/maze_generator.c -o $@
 
 # the game is C++ and links the C files compiled above
-build/maze_game: src/maze_game.cpp build/maze_core.o build/maze_generator.o build/maze_users.o | build
-	$(CXX) $(CXXFLAGS) $(RAYLIB_CFLAGS) src/maze_game.cpp build/maze_core.o build/maze_generator.o build/maze_users.o $(RAYLIB_LIBS) -lsqlite3 -lm -o $@
+build/maze_game: src/maze_game.cpp include/maze_solvers.hpp $(MAZE_OBJECTS) build/maze_users.o | build
+	$(CXX) $(CXXFLAGS) $(RAYLIB_CFLAGS) src/maze_game.cpp $(MAZE_OBJECTS) build/maze_users.o $(RAYLIB_LIBS) -lsqlite3 -lm -o $@
 
 build/menu: src/menu.c build/maze_users.o | build
 	$(CC) $(CFLAGS) $(RAYLIB_CFLAGS) src/menu.c build/maze_users.o $(RAYLIB_LIBS) -lsqlite3 -lm -o $@

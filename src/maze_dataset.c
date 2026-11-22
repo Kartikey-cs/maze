@@ -9,7 +9,10 @@
  *       reads 7 feature numbers per line and prints the model's
  *       predicted success rate (used to check C matches Python).
  */
-#include "maze.h"
+#include "maze_graph.h"
+#include "maze_generator.h"
+#include "maze_planner.h"
+#include "maze_adaptive.h"
 #include "maze_model.h"
 #include <errno.h>
 #include <stdio.h>
