@@ -22,12 +22,7 @@ static sqlite3 *open_db(void)
     sqlite3_exec(db,
                  "CREATE TABLE IF NOT EXISTS users("
                  "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                 "username TEXT UNIQUE, password TEXT);",
-                 NULL, NULL, NULL);
-
-    /* older databases have no rating column. if it is already there this
-       gives an error, which we ignore */
-    sqlite3_exec(db, "ALTER TABLE users ADD COLUMN rating REAL DEFAULT 1000;",
+                 "username TEXT UNIQUE, password TEXT, rating REAL DEFAULT 1000);",
                  NULL, NULL, NULL);
 
     /* difficulty: 0 easy, 1 medium, 2 hard */
@@ -208,37 +203,12 @@ static int same_text(const char *a, const char *b)
     return difference == 0;
 }
 
-/* old accounts saved an unsalted 64 bit FNV hash. they can still log in,
-   and get the new format when they do */
-static void legacy_hash(const char *password, char hex[32])
-{
-    unsigned long long hash = 14695981039346656037ULL;
-    int i;
-    for (i = 0; password[i] != '\0'; i++)
-    {
-        hash ^= (unsigned char)password[i];
-        hash *= 1099511628211ULL;
-    }
-    snprintf(hex, 32, "%016llx", hash);
-}
-
-/* returns 1 if the password is right. *legacy = 1 if it was the old format */
-static int check_password(const char *password, const char *stored, int *legacy)
+/* returns 1 if the password is right */
+static int check_password(const char *password, const char *stored)
 {
     unsigned char salt[SALT_BYTES];
     char hash[65];
     int i;
-
-    *legacy = 0;
-    if (strchr(stored, ':') == NULL)
-        *legacy = 1;
-
-    if (*legacy)
-    {
-        char hex[32];
-        legacy_hash(password, hex);
-        return same_text(hex, stored);
-    }
 
     if (strlen(stored) != STORED_LEN - 1 || stored[2 * SALT_BYTES] != ':')
         return 0;
@@ -319,7 +289,6 @@ int login_user(const char *username, const char *password, char *message, int si
     sqlite3_stmt *stmt = NULL;
     int found = 0;
     int success = 0;
-    int legacy = 0;
 
     if (strlen(password) >= MAX_LEN)
     {
@@ -350,25 +319,10 @@ int login_user(const char *username, const char *password, char *message, int si
     }
     sqlite3_finalize(stmt);
 
-    if (found && check_password(password, stored, &legacy))
+    if (found && check_password(password, stored))
     {
         success = 1;
         snprintf(message, size, "Login successful.");
-
-        /* save old accounts again in the new, safer format */
-        if (legacy)
-        {
-            char upgraded[STORED_LEN];
-            make_stored_password(password, upgraded);
-            if (sqlite3_prepare_v2(db, "UPDATE users SET password = ? WHERE username = ?;",
-                                   -1, &stmt, NULL) == SQLITE_OK)
-            {
-                sqlite3_bind_text(stmt, 1, upgraded, -1, SQLITE_STATIC);
-                sqlite3_bind_text(stmt, 2, username, -1, SQLITE_STATIC);
-                sqlite3_step(stmt);
-            }
-            sqlite3_finalize(stmt);
-        }
     }
     else
     {
