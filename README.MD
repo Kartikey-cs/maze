@@ -105,8 +105,7 @@ plus the Manhattan distance guess). The table shows cells checked, route length
 and time in microseconds.
 
 **Accounts:** passwords are saved as a random salt plus SHA-256 repeated 10000
-times. Old accounts with the earlier unsalted hash still log in and are upgraded
-when they do. All queries use `?` placeholders, so usernames can't inject SQL.
+times. All queries use `?` placeholders, so usernames can't inject SQL.
 
 **Ratings:** Elo with K = 32. Easy, medium and hard mazes count as 800, 1000 and
 1200. Saving a game and updating the rating happen in one transaction.
