@@ -27,10 +27,12 @@ static sqlite3 *open_db(void)
 
     /* older databases have no rating column. if it is already there this
        gives an error, which we ignore */
+
     sqlite3_exec(db, "ALTER TABLE users ADD COLUMN rating REAL DEFAULT 1000;",
                  NULL, NULL, NULL);
 
     /* difficulty: 0 easy, 1 medium, 2 hard */
+
     sqlite3_exec(db,
                  "CREATE TABLE IF NOT EXISTS plays("
                  "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -58,7 +60,7 @@ static const uint32_t K[64] = {
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-/* rotate right */
+/* Rotate right */
 #define ROTR(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
 
 /* mixes one 64 byte block into the hash state h */

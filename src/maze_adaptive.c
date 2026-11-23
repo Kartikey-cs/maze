@@ -16,7 +16,6 @@ static int manhattan(const Graph *g, int a, int b)
     return abs(g->vertex_row[a] - g->vertex_row[b]) +
            abs(g->vertex_col[a] - g->vertex_col[b]);
 }
-
 /* runs one bot from start to goal.
    returns 1 if it reaches the goal, 0 if stamina runs out or it is stuck,
    -1 if the input is wrong */
